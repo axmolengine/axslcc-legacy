@@ -66,6 +66,12 @@
 //      1.13.0      Target MSL default version to 2.0
 //      1.13.1      Split legacy --automap option into two distinct flags: --auto-map-bindings (for resource bindings) and --auto-map-locations (for shader I/O locations).
 //      1.13.2      Add option --inline-ubo-members, previous option name: --flatten-ubos is deprecated
+//      1.15.0      Fix spirv code output truncation when --sgs set
+//                  Add --profile version support for SPIRV (default: 100)
+//                  Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
+//                  Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
+//                  Remove SPVRemapper linkage
+//
 
 /**
  * @since 1.9.5
@@ -103,7 +109,9 @@
 
 #include "axslc-writer.h"
 
+#ifdef _WIN32
 #include <d3dcompiler.h>
+#endif
 
 // sjson
 #define sjson_malloc(user, size) sx_malloc((const sx_alloc*)user, size)
@@ -116,8 +124,8 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 13
-#define VERSION_SUB 2
+#define VERSION_MINOR 15
+#define VERSION_SUB 0
 
 using namespace axslc;
 
@@ -461,6 +469,7 @@ static void parse_defines(cmd_args* args, const char* defines)
 static sx_mem_block* d3d_compile_binary(const char* code, const char* filename,
     int profile_version, EShLanguage stage, int debug)
 {
+#ifdef _WIN32
     ID3DBlob* output = NULL;
     ID3DBlob* errors = NULL;
 
@@ -511,6 +520,9 @@ static sx_mem_block* d3d_compile_binary(const char* code, const char* filename,
         output->GetBufferPointer());
     output->Release();
     return mem;
+#else
+    return nullptr;
+#endif
 }
 
 static void cleanup_args(cmd_args* args)
@@ -1401,7 +1413,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 sx_mem_block* mem = d3d_compile_binary(code.c_str(), args.out_filepath, args.profile_ver,
                     stage, args.debug_bin);
                 if (!mem) {
-                    printf("Bytecode compilation of '%s' failed\n", args.out_filepath);
+                    printf("HLSL bytecode compilation of '%s' failed\n", args.out_filepath);
                     return -1;
                 }
 
@@ -1411,7 +1423,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 if (args.lang != SHADER_LANG_SPIRV) {
                     sc_add_stage_code(g_sgs, sstage, code.c_str());
                 } else {
-                    sc_add_stage_code_bin(g_sgs, sstage, spirv.data(), (int)spirv.size());
+                    sc_add_stage_code_bin(g_sgs, sstage, spirv.data(), static_cast<int>(spirv.size() * sizeof(uint32_t)));
                 }
             }
 
@@ -1445,7 +1457,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 sx_mem_block* mem = d3d_compile_binary(code.c_str(), filepath.c_str(), args.profile_ver,
                     stage, args.debug_bin);
                 if (!mem) {
-                    printf("Bytecode compilation of '%s' failed\n", filepath.c_str());
+                    printf("HLSL bytecode compilation of '%s' failed\n", filepath.c_str());
                     return -1;
                 }
 

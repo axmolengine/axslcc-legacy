@@ -11,6 +11,7 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ### 1.15.0
 
+- Fix spirv code output truncation when --sgs set
 - Add --profile version support for SPIRV (default: 100)
 - Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
 - Update glslang: 1c7030f(5357) (Until Nov 11, 2025)

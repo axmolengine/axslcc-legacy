@@ -1,5 +1,5 @@
 diff --git a/3rdparty/spirv-cross/spirv_glsl.cpp b/3rdparty/spirv-cross/spirv_glsl.cpp
-index 5392bd7..cafb93e 100644
+index 81fdae0..f7006b7 100644
 --- a/3rdparty/spirv-cross/spirv_glsl.cpp
 +++ b/3rdparty/spirv-cross/spirv_glsl.cpp
 @@ -2373,7 +2373,10 @@ void CompilerGLSL::emit_buffer_block(const SPIRVariable &var)
@@ -14,7 +14,7 @@ index 5392bd7..cafb93e 100644
  	else
  		emit_buffer_block_native(var);
  }
-@@ -10797,6 +10800,8 @@ string CompilerGLSL::access_chain_internal(uint32_t base, const uint32_t *indice
+@@ -10826,6 +10829,8 @@ string CompilerGLSL::access_chain_internal(uint32_t base, const uint32_t *indice
  					string qual_mbr_name = get_member_qualified_name(type_id, index);
  					if (!qual_mbr_name.empty())
  						expr = qual_mbr_name;
@@ -23,7 +23,7 @@ index 5392bd7..cafb93e 100644
  					else if (flatten_member_reference)
  						expr += join("_", to_member_name(*type, index));
  					else
-@@ -20190,3 +20195,37 @@ bool CompilerGLSL::has_legacy_nocontract(uint32_t result_type, uint32_t id) cons
+@@ -20219,3 +20224,37 @@ bool CompilerGLSL::has_legacy_nocontract(uint32_t result_type, uint32_t id) cons
  	                      FPFastMathModeAllowReassocMask;
  	return (get_fp_fast_math_flags_for_op(result_type, id) & fp_flags) != fp_flags;
  }
@@ -62,10 +62,10 @@ index 5392bd7..cafb93e 100644
 +
 +// === axslcc spec
 diff --git a/3rdparty/spirv-cross/spirv_glsl.hpp b/3rdparty/spirv-cross/spirv_glsl.hpp
-index 776ab8a..2e4d014 100644
+index 78bff2d..a5914b0 100644
 --- a/3rdparty/spirv-cross/spirv_glsl.hpp
 +++ b/3rdparty/spirv-cross/spirv_glsl.hpp
-@@ -155,6 +155,18 @@ public:
+@@ -156,6 +156,18 @@ public:
  		// This workaround may cause significant performance degeneration on some Android devices.
  		bool enable_row_major_load_workaround = true;
  
@@ -84,7 +84,7 @@ index 776ab8a..2e4d014 100644
  		// If non-zero, controls layout(num_views = N) in; in GL_OVR_multiview2.
  		uint32_t ovr_multiview_view_count = 0;
  
-@@ -1084,6 +1096,11 @@ protected:
+@@ -1085,6 +1097,11 @@ protected:
  	uint32_t get_fp_fast_math_flags_for_op(uint32_t result_type, uint32_t id) const;
  	bool has_legacy_nocontract(uint32_t result_type, uint32_t id) const;
  

@@ -9,6 +9,13 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 1.15.0
+
+- Add --profile version support for SPIRV (default: 100)
+- Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
+- Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
+- Remove SPVRemapper linkage
+
 ### 1.13.2
 
 - Add option --inline-ubo-members, previous option name: --flatten-ubos is deprecated
@@ -28,8 +35,8 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 - Add option `--msl_ios` for target iOS MSL
 - Add option `--fixup_clipspace`
 - Add option `--msl_reset_vlocs`
-- spirv-cross: 0a88b2d(4087) (until Aug 18, 2025)
-- glslang: 09d803c(5321) (until Aug 26, 2025)
+- Update spirv-cross: 0a88b2d(4087) (Until Aug 18, 2025)
+- Update glslang: 09d803c(5321) (Until Aug 26, 2025)
 
 ### 1.11.0
 
@@ -38,12 +45,12 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 ### 1.10.0
 
 - Drop GLSL-1.x support
-- spirv-cross: 7fde353(4072) (until Aug 11, 2025)
-- glslang: b4e66d7(5311) (until Aug 8, 2025)
+- Update spirv-cross: 7fde353(4072) (Until Aug 11, 2025)
+- Update glslang: b4e66d7(5311) (Until Aug 8, 2025)
 
 ### 1.9.6
-- spriv-cross: 6173e24(3916) (updated on Dec 13, 2024) with modified to support legacy GLSL 1.x, see [spirv_glsl.patch](spirv_glsl.patch)
-- glslang: 340bf88(5171) (updated on Dec 13, 2024)
+- Update spriv-cross: 6173e24(3916) (updated on Dec 13, 2024) with modified to support legacy GLSL 1.x, see [spirv_glsl.patch](spirv_glsl.patch)
+- Update glslang: 340bf88(5171) (updated on Dec 13, 2024)
 
 ### Features
 

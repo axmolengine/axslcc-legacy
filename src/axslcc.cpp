@@ -103,10 +103,7 @@
 
 #include "axslc-writer.h"
 
-#ifdef D3D11_COMPILER
 #include <d3dcompiler.h>
-#define BYTECODE_COMPILATION
-#endif
 
 // sjson
 #define sjson_malloc(user, size) sx_malloc((const sx_alloc*)user, size)
@@ -461,8 +458,7 @@ static void parse_defines(cmd_args* args, const char* defines)
     } while (def);
 }
 
-#ifdef D3D11_COMPILER
-static sx_mem_block* compile_binary(const char* code, const char* filename,
+static sx_mem_block* d3d_compile_binary(const char* code, const char* filename,
     int profile_version, EShLanguage stage, int debug)
 {
     ID3DBlob* output = NULL;
@@ -516,7 +512,6 @@ static sx_mem_block* compile_binary(const char* code, const char* filename,
     output->Release();
     return mem;
 }
-#endif
 
 static void cleanup_args(cmd_args* args)
 {
@@ -1380,7 +1375,9 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
         // opts.emit_expanded_uniforms = true;
         compiler->set_common_options(opts);
 
-        std::string code = compiler->compile();
+        std::string code;
+        if (args.lang != SHADER_LANG_SPIRV)
+            code = compiler->compile();
 
         // Output code
         if (g_sgs) {
@@ -1400,9 +1397,8 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 break;
             }
 
-            if (args.compile_bin) {
-#ifdef BYTECODE_COMPILATION
-                sx_mem_block* mem = compile_binary(code.c_str(), args.out_filepath, args.profile_ver,
+            if (args.compile_bin && args.lang == SHADER_LANG_HLSL) {
+                sx_mem_block* mem = d3d_compile_binary(code.c_str(), args.out_filepath, args.profile_ver,
                     stage, args.debug_bin);
                 if (!mem) {
                     printf("Bytecode compilation of '%s' failed\n", args.out_filepath);
@@ -1411,7 +1407,6 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
 
                 sc_add_stage_code_bin(g_sgs, sstage, mem->data, mem->size);
                 sx_mem_destroy_block(mem);
-#endif
             } else {
                 if (args.lang != SHADER_LANG_SPIRV) {
                     sc_add_stage_code(g_sgs, sstage, code.c_str());
@@ -1446,9 +1441,8 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             bool append = !cvar_code.empty() && (file_index > 0);
 
             // Check if we have to compile byte-code or output the source only
-            if (args.compile_bin) {
-#ifdef BYTECODE_COMPILATION
-                sx_mem_block* mem = compile_binary(code.c_str(), filepath.c_str(), args.profile_ver,
+            if (args.compile_bin && args.lang == SHADER_LANG_HLSL) {
+                sx_mem_block* mem = d3d_compile_binary(code.c_str(), filepath.c_str(), args.profile_ver,
                     stage, args.debug_bin);
                 if (!mem) {
                     printf("Bytecode compilation of '%s' failed\n", filepath.c_str());
@@ -1461,7 +1455,6 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                 }
 
                 sx_mem_destroy_block(mem);
-#endif
             } else {
                 // output code file
                 auto ok = (args.lang != SHADER_LANG_SPIRV) ? write_file(filepath, code.c_str(), cvar_code, append) : write_file(filepath, reinterpret_cast<const char*>(spirv.data()), cvar_code, append, static_cast<int>(spirv.size() * sizeof(uint32_t)));
@@ -1743,7 +1736,7 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
 
     // TODO: add more options for messaging options
     EShMessages messages = EShMsgDefault;
-    int default_version = 100; // 110 for desktop
+    constexpr int default_version = 100; // vulkan version
 
     // construct semantics mapping defines
     // to be used in layout(location = SEMANTIC) inside GLSL
@@ -1796,7 +1789,37 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         shader->setInvertY(args.invert_y ? true : false);
         shader->setEnvInput(glslang::EShSourceGlsl, files[i].stage, glslang::EShClientVulkan, default_version);
         shader->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
-        shader->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+
+        /*
+         *  Vulkan 1.0 -> SPIR-V 1.0
+         *  Vulkan 1.1 -> SPIR-V 1.3
+         *  Vulkan 1.2 -> SPIR-V 1.5
+         *  Vulkan 1.3 -> SPIR-V 1.6
+         */
+        glslang::EShTargetLanguageVersion spv_ver = glslang::EShTargetSpv_1_0;
+        if (args.lang == SHADER_LANG_SPIRV) {
+            switch (args.profile_ver) {
+            case 110:
+                spv_ver = glslang::EShTargetSpv_1_1;
+                break;
+            case 120:
+                spv_ver = glslang::EShTargetSpv_1_2;
+                break;
+            case 130:
+                spv_ver = glslang::EShTargetSpv_1_3;
+                break;
+            case 140:
+                spv_ver = glslang::EShTargetSpv_1_4;
+                break;
+            case 150:
+                spv_ver = glslang::EShTargetSpv_1_5;
+                break;
+            case 160:
+                spv_ver = glslang::EShTargetSpv_1_6;
+                break;
+            }
+        }
+        shader->setEnvTarget(glslang::EShTargetSpv, spv_ver);
 
         // refer to: https://github.com/septag/glslcc/issues/18
         if (args.auto_map_bindings || args.automap)
@@ -2092,6 +2115,8 @@ int main(int argc, char* argv[])
             args.profile_ver = 330;
         else if (args.lang == SHADER_LANG_MSL)
             args.profile_ver = spirv_cross::CompilerMSL::Options::make_msl_version(2, 0);
+        else if (args.lang == SHADER_LANG_SPIRV)
+            args.profile_ver = 100;
     }
 
 #if SX_PLATFORM_WINDOWS

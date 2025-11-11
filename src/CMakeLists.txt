@@ -13,7 +13,6 @@ target_link_libraries(axslcc PRIVATE
         glslang-default-resource-limits
         OSDependent
         SPIRV
-        SPVRemapper
         spirv-cross-core
         spirv-cross-cpp
         spirv-cross-glsl
@@ -41,10 +40,8 @@ if (STATIC_LINK AND NOT MSVC)
 		#	add_custom_command(TARGET axslcc POST_BUILD COMMAND strip -g -X -x ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/axslcc)
 		#endif()
 	endif()
-endif()	
+endif()
 
 install(TARGETS axslcc 
         CONFIGURATIONS Release
         RUNTIME DESTINATION bin)
-		
-		

@@ -67,9 +67,6 @@ set(ENABLE_CTEST FALSE CACHE BOOL "" FORCE)
 set(SPIRV_CROSS_CLI OFF CACHE BOOL "" FORCE)
 set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 
-# halx99: optimize require https://github.com/KhronosGroup/SPIRV-Tools?
-set(ALLOW_EXTERNAL_SPIRV_TOOLS OFF CACHE BOOL "" FORCE)
-
 if (NOT (IS_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/3rdparty/glslang"))
     message(STATUS "Downloading glslang ...")
     find_program(GIT_COMMAND NAMES git REQUIRED)
@@ -83,3 +80,6 @@ add_subdirectory(3rdparty/spirv-cross)
 add_subdirectory(3rdparty/sx)
 add_subdirectory(src)
 
+if(MSVC_IDE)
+    set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT axslcc)
+endif()

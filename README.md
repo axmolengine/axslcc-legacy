@@ -9,6 +9,12 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.0.0
+
+- Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
+- Update spirv-cross: adec7ac(5132) (Until Nov 13, 2025)
+- Update glslang: 7099c12(5358) (Until Nov 13, 2025)
+
 ### 1.15.0
 
 - Fix spirv code output truncation when --sgs set

@@ -71,6 +71,7 @@
 //                  Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
 //                  Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
 //                  Remove SPVRemapper linkage
+//      3.0.0       Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
 //
 
 /**
@@ -123,8 +124,8 @@
 #define SJSON_IMPLEMENTATION
 #include "../3rdparty/sjson/sjson.h"
 
-#define VERSION_MAJOR 1
-#define VERSION_MINOR 15
+#define VERSION_MAJOR 3
+#define VERSION_MINOR 0
 #define VERSION_SUB 0
 
 using namespace axslc;
@@ -1123,9 +1124,15 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
 
             sx_strcpy(t.name, sizeof(t.name), name.c_str());
             t.binding = binding;
-            t.image_dim = k_texture_dim_fourcc[type.image.dim];
+            t.image_dim = type.image.dim;
             t.multisample = type.image.ms ? 1 : 0;
-            t.is_array = type.image.arrayed ? 1 : 0;
+            t.arrayed = type.image.arrayed ? 1 : 0;
+
+            int arr_sz = 0;
+            for (auto arr : type.array)
+                arr_sz += arr;
+            t.count = arr_sz;
+            
             sx_mem_write_var(w, t);
         } else if (res_type == RES_TYPE_VERTEX_INPUT) {
             sc_refl_input i = { 0 };

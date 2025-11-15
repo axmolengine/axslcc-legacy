@@ -78,6 +78,7 @@ jobs:
       with:
         tag_name: ${{ steps.check_ver.outputs.release_tag }}
         name: ${{ steps.check_ver.outputs.release_tag }}
+        target_commitish: "${{ github.head_ref || github.ref_name }}"
         files: |
           ./pkg_dir/*
       env:

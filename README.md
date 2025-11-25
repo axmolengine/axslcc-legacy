@@ -9,10 +9,14 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+
+### 3.1.1
+
+- Register builtin sampler state symbols
+
 ### 3.1.0
 
 - Add layout decoration 'sampler_slot' for combined texture sampler uniforms
-- 
 
 ### 3.0.0
 

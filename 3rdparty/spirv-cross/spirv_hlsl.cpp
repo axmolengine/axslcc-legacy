@@ -1434,6 +1434,28 @@ bool CompilerHLSL::is_hlsl_aux_buffer_binding_used(HLSLAuxBinding binding) const
 		return false;
 }
 
+void CompilerHLSL::add_hlsl_sampler_state(uint32_t slot, const std::string &sampler_state_symbol)
+{
+	sampler_registry.emplace(slot, sampler_state_symbol);
+}
+
+uint32_t CompilerHLSL::resolve_sampler_variable(uint32_t id) const
+{
+	if (ir.ids[id].get_type() == TypeVariable)
+	{
+		return id;
+	}
+	else if (ir.ids[id].get_type() == TypeExpression)
+	{
+		auto &expr = get<SPIRExpression>(id);
+		if (expr.loaded_from)
+			return expr.loaded_from;
+		if (expr.base_expression)
+			return expr.base_expression;
+	}
+	return 0;
+}
+
 void CompilerHLSL::emit_composite_constants()
 {
 	// HLSL cannot declare structs or arrays inline, so we must move them out to
@@ -3963,7 +3985,21 @@ void CompilerHLSL::emit_texture_op(const Instruction &i, bool sparse)
 		if (combined_image)
 			sampler_expr = to_non_uniform_aware_expression(combined_image->sampler);
 		else
-			sampler_expr = to_sampler_expression(img);
+		{
+			if (hlsl_options.shader_model <= 50 || is_forcing_recompilation())
+			{
+				sampler_expr = to_sampler_expression(img);
+			}
+			else { // axslcc spec: d3d12 HLSL-5.1+
+				uint32_t sampler_id = resolve_sampler_variable(img);
+				auto sampler_slot = get_decoration(sampler_id, spv::DecorationSamplerSlot);
+				auto it = sampler_registry.find(sampler_slot);
+				if (it != sampler_registry.end())
+					sampler_expr = it->second;
+				else
+					sampler_expr = to_sampler_expression(img);
+			}
+		}
 		expr += sampler_expr;
 	}
 
@@ -4251,16 +4287,13 @@ string CompilerHLSL::to_resource_binding(const SPIRVariable &var)
 	return to_resource_register(resource_flags, space, binding, desc_set);
 }
 
-// axslcc spec
 string CompilerHLSL::to_resource_binding_sampler(const SPIRVariable &var)
 {
-	const auto decoration = hlsl_options.shader_model >= 51 ? DecorationSamplerSlot : DecorationBinding;
-
 	// For combined image samplers.
-	if (!has_decoration(var.self, decoration))
+	if (!has_decoration(var.self, DecorationBinding))
 		return "";
 
-	return to_resource_register(HLSL_BINDING_AUTO_SAMPLER_BIT, 's', get_decoration(var.self, decoration),
+	return to_resource_register(HLSL_BINDING_AUTO_SAMPLER_BIT, 's', get_decoration(var.self, DecorationBinding),
 	                            get_decoration(var.self, DecorationDescriptorSet));
 }
 
@@ -4338,13 +4371,16 @@ void CompilerHLSL::emit_modern_uniform(const SPIRVariable &var)
 
 		if (type.basetype == SPIRType::SampledImage && type.image.dim != DimBuffer)
 		{
-			// For combined image samplers, also emit a combined image sampler.
-			if (is_depth_image(type, var.self))
-				statement("SamplerComparisonState ", to_sampler_expression(var.self), type_to_array_glsl(type, var.self),
-				          to_resource_binding_sampler(var), ";");
-			else
-				statement("SamplerState ", to_sampler_expression(var.self), type_to_array_glsl(type, var.self),
-				          to_resource_binding_sampler(var), ";");
+			if (hlsl_options.shader_model < 51)
+			{ // axslcc spec: don't emit local sampler state for d3d12
+				// For combined image samplers, also emit a combined image sampler.
+				if (is_depth_image(type, var.self))
+					statement("SamplerComparisonState ", to_sampler_expression(var.self),
+					          type_to_array_glsl(type, var.self), to_resource_binding_sampler(var), ";");
+				else
+					statement("SamplerState ", to_sampler_expression(var.self), type_to_array_glsl(type, var.self),
+					          to_resource_binding_sampler(var), ";");
+			}
 		}
 		break;
 	}

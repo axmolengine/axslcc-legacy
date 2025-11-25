@@ -73,6 +73,7 @@
 //                  Remove SPVRemapper linkage
 //      3.0.0       Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
 //      3.1.0       Add layout decoration 'sampler_slot` support for uniform sampler2D
+//      3.1.1       Register builtin sampler state symbols
 //
 
 /**
@@ -130,7 +131,7 @@
 
 #define AXSLCC_VERSION_MAJOR 3
 #define AXSLCC_VERSION_MINOR 1
-#define AXSLCC_VERSION_REVISION 0
+#define AXSLCC_VERSION_REVISION 1
 
 using namespace axslc;
 
@@ -257,6 +258,37 @@ static int k_attrib_sem_indices[VERTEX_ATTRIB_COUNT] = {
     0,
     0
 };
+
+static const char* k_builtin_sampler_states[] = {
+    "LinearClamp", // 0
+    "LinearWrap", // 1
+    "LinearMirror", // 2
+    "LinearBorder", // 3
+
+    "PointClamp", // 4
+    "PointWrap", // 5
+    "PointMirror", // 6
+    "PointBorder", // 7
+
+    "LinearMipClamp", // 8
+    "LinearMipWrap", // 9
+    "LinearMipMirror", // 10
+    "LinearMipBorder", // 11
+
+    "AnisoClamp", // 12
+    "AnisoWrap", // 13
+    "AnisoMirror", // 14
+    "AnisoBorder", // 15
+
+    "ShadowCmpClamp", // 16
+    "ShadowCmpWrap", // 17
+    "ShadowCmpMirror", // 18
+    "ShadowCmpBorder", // 19
+
+    "LinearNoMipClamp", // 20
+    "PointNoMipClamp" // 21
+};
+
 
 // Includer
 class Includer : public glslang::TShader::Includer {
@@ -1364,6 +1396,12 @@ static int cross_compile(const cmd_args& args, const glslang::TIntermediate& ir,
             for (int i = 0; i < VERTEX_ATTRIB_COUNT; ++i) {
                 spirv_cross::HLSLVertexAttributeRemap remap = { (uint32_t)i, k_attrib_names[i] };
                 hlsl->add_vertex_attribute_remap(remap);
+            }
+
+            // since axslcc-3.1.1
+            for (auto i = 0; i < std::size(k_builtin_sampler_states); ++i)
+            {
+                hlsl->add_hlsl_sampler_state(i, k_builtin_sampler_states[i]);
             }
         } else if (args.lang == SHADER_LANG_MSL) {
             spirv_cross::CompilerMSL* msl = (spirv_cross::CompilerMSL*)compiler.get();

@@ -1,6 +1,6 @@
 //
 // Copyright 2018 Sepehr Taghdisian (septag@github). All rights reserved.
-// Copyright 2023~2024 axmol.dev, All rights reserved.
+// Copyright 2023~2025 axmol.dev, All rights reserved.
 // License: https://github.com/axmolengine/axslcc#license-bsd-2-clause
 // Original: https://github.com/septag/glslcc#license-bsd-2-clause
 //
@@ -365,7 +365,7 @@ struct cmd_args {
     int sc_file;
     int reflect;
     int compile_bin;
-    int debug_bin;
+    int debug_info;
     int optimize;
     int silent;
     int validate;
@@ -931,7 +931,7 @@ static void output_reflection_json(const cmd_args& args, const spirv_cross::Comp
     sjson_put_int(jctx, jroot, "profile_version", args.profile_ver);
     if (args.compile_bin)
         sjson_put_bool(jctx, jroot, "bytecode", true);
-    if (args.debug_bin)
+    if (args.debug_info)
         sjson_put_bool(jctx, jroot, "debug_info", true);
     if (args.flatten_ubo)
         sjson_put_bool(jctx, jroot, "flatten_ubo", true);
@@ -1170,7 +1170,7 @@ static int output_reflection_bin(const cmd_args& args, const spirv_cross::Compil
     sx_memset(&refl, 0x0, sizeof(refl));
     sx_os_path_basename(refl.name, sizeof(refl.name), filename);
     refl.flatten_ubo = args.flatten_ubo;
-    refl.debug_info = args.debug_bin;
+    refl.debug_info = args.debug_info;
     sx_mem_write_var(&w, refl);
 
     if (!ress.stage_inputs.empty() && stage == EShLangVertex) {
@@ -1418,7 +1418,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
 
             if (args.compile_bin && args.lang == SHADER_LANG_HLSL) {
                 sx_mem_block* mem = d3d_compile_binary(code.c_str(), args.out_filepath, args.profile_ver,
-                    stage, args.debug_bin);
+                    stage, args.debug_info);
                 if (!mem) {
                     printf("HLSL bytecode compilation of '%s' failed\n", args.out_filepath);
                     return -1;
@@ -1462,7 +1462,7 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
             // Check if we have to compile byte-code or output the source only
             if (args.compile_bin && args.lang == SHADER_LANG_HLSL) {
                 sx_mem_block* mem = d3d_compile_binary(code.c_str(), filepath.c_str(), args.profile_ver,
-                    stage, args.debug_bin);
+                    stage, args.debug_info);
                 if (!mem) {
                     printf("HLSL bytecode compilation of '%s' failed\n", filepath.c_str());
                     return -1;
@@ -1902,6 +1902,7 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
 
         glslang::SpvOptions spv_opts;
         spv_opts.validate = true;
+        spv_opts.generateDebugInfo = args.debug_info;
         spv_opts.disableOptimizer = false;
         spv_opts.optimizeSize = !!args.optimize;
         spv::SpvBuildLogger logger;
@@ -2005,7 +2006,7 @@ int main(int argc, char* argv[])
         { "reflect", 'r', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'r', "Output shader reflection information to a json file", "Filepath" },
         { "sgs", 'G', SX_CMDLINE_OPTYPE_FLAG_SET, &args.sc_file, 1, "Output file should be packed SGS format", "Filepath" },
         { "bin", 'b', SX_CMDLINE_OPTYPE_FLAG_SET, &args.compile_bin, 1, "Compile to bytecode instead of source. requires ENABLE_D3D11_COMPILER build flag", 0x0 },
-        { "debug", 'g', SX_CMDLINE_OPTYPE_FLAG_SET, &args.debug_bin, 1, "Generate debug info for binary compilation, should come with --bin", 0x0 },
+        { "debug", 'g', SX_CMDLINE_OPTYPE_FLAG_SET, &args.debug_info, 1, "Generate debug info for binary compilation, should come with --bin", 0x0 },
         { "optimize", 'O', SX_CMDLINE_OPTYPE_FLAG_SET, &args.optimize, 1, "Optimize shader for release compilation", 0x0 },
         { "silent", 'S', SX_CMDLINE_OPTYPE_FLAG_SET, &args.silent, 1, "Does not output filename(s) after compile success" },
         { "input", 'i', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'i', "Input shader source file. determined by extension (.vert/.frag/.comp)", 0x0 },

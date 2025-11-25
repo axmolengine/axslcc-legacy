@@ -28,6 +28,9 @@ jobs:
     steps:
 
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
+        repository: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name || github.repository }}
 
     - name: Check release version
       id: check_ver
@@ -45,7 +48,7 @@ jobs:
     
     - name: Download artifacts from workflow build
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v11
       with:
         # Optional, GitHub token
         github_token: ${{secrets.GITHUB_TOKEN}}

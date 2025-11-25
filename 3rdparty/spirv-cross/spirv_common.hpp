@@ -1798,6 +1798,7 @@ struct Meta
 		uint32_t component = 0;
 		uint32_t set = 0;
 		uint32_t binding = 0;
+		uint32_t sampler_slot = 0; // axslcc spec
 		uint32_t offset = 0;
 		uint32_t xfb_buffer = 0;
 		uint32_t xfb_stride = 0;

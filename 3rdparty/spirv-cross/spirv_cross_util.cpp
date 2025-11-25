@@ -72,6 +72,13 @@ void inherit_combined_sampler_bindings(Compiler &compiler)
 			uint32_t binding = compiler.get_decoration(s.image_id, DecorationBinding);
 			compiler.set_decoration(s.combined_id, DecorationBinding, binding);
 		}
+
+		// axslcc spec
+		if (compiler.has_decoration(s.image_id, DecorationSamplerSlot))
+		{
+			uint32_t sampler_slot = compiler.get_decoration(s.image_id, DecorationSamplerSlot);
+			compiler.set_decoration(s.combined_id, DecorationSamplerSlot, sampler_slot);
+		}
 	}
 }
 } // namespace spirv_cross_util

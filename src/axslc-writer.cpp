@@ -33,20 +33,25 @@ struct sc_file
 {
     const sx_alloc* alloc               = nullptr;
     std::string     filepath            = {};
+    uint16_t        major_ver           = 0;
+    uint16_t        minor_ver           = 0;
     uint32_t        lang                = 0;
     uint16_t        profile_ver         = 0;
-    sc_stage*      stages              = nullptr;
+    sc_stage*       stages              = nullptr;
 };
 
-sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint32_t lang, uint32_t profile_ver)
+sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t major_ver, uint16_t min_ver, uint32_t lang, uint32_t profile_ver)
 {
-    sc_file* sgs = new (sx_malloc(alloc, sizeof(sc_file))) sc_file;
-    sgs->alloc = alloc;
-    sgs->filepath = filepath;
-    sgs->lang = lang;
-    sgs->profile_ver = profile_ver;
+    sc_file* sc = new (sx_malloc(alloc, sizeof(sc_file))) sc_file;
+    sc->alloc = alloc;
+    sc->filepath = filepath;
 
-    return sgs;
+    sc->major_ver = major_ver;
+    sc->minor_ver = min_ver;
+    sc->lang = lang;
+    sc->profile_ver = profile_ver;
+
+    return sc;
 }
 
 void sc_destroy_file(sc_file* f)
@@ -142,15 +147,17 @@ bool sc_commit(sc_file* f)
         return false;
 
     // write main chunk
-    const uint32_t _sgs = SC_CHUNK;
-    const uint32_t _sc_size = 0;       // doesn't matter
-    sx_file_write_var(&writer, _sgs);
-    sx_file_write_var(&writer, _sc_size);
+    const uint32_t sc_magic = SC_CHUNK;
+    const uint32_t sc_size = 0;       // doesn't matter
+    sx_file_write_var(&writer, sc_magic);
+    sx_file_write_var(&writer, sc_size);
 
-    sc_chunk sgs;
-    sgs.lang = f->lang;
-    sgs.profile_ver = f->profile_ver;
-    sx_file_write_var(&writer, sgs);
+    sc_chunk sc_header;
+    sc_header.major = f->major_ver;
+    sc_header.minor = f->minor_ver;
+    sc_header.lang = f->lang;
+    sc_header.profile_ver = f->profile_ver;
+    sx_file_write_var(&writer, sc_header);
 
     // write stages
     for (int i = 0; i < sx_array_count(f->stages); i++) {

@@ -431,6 +431,10 @@ void ParsedIR::set_decoration(ID id, Decoration decoration, uint32_t argument)
 		dec.set = argument;
 		break;
 
+	case DecorationSamplerSlot: // axslcc spec
+		dec.sampler_slot = argument;
+		break;
+
 	case DecorationInputAttachmentIndex:
 		dec.input_attachment = argument;
 		break;
@@ -652,6 +656,8 @@ uint32_t ParsedIR::get_decoration(ID id, Decoration decoration) const
 		return dec.stream;
 	case DecorationBinding:
 		return dec.binding;
+	case DecorationSamplerSlot:
+		return dec.sampler_slot;
 	case DecorationDescriptorSet:
 		return dec.set;
 	case DecorationInputAttachmentIndex:
@@ -737,6 +743,10 @@ void ParsedIR::unset_decoration(ID id, Decoration decoration)
 
 	case DecorationDescriptorSet:
 		dec.set = 0;
+		break;
+
+	case DecorationSamplerSlot: // axslcc spec
+		dec.sampler_slot = 0;
 		break;
 
 	case DecorationInputAttachmentIndex:

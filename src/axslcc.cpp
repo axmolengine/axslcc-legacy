@@ -72,6 +72,7 @@
 //                  Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
 //                  Remove SPVRemapper linkage
 //      3.0.0       Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
+//      3.1.0       Add layout decoration 'sampler_slot` support for uniform sampler2D
 //
 
 /**
@@ -83,6 +84,7 @@
  */
 
 #define _ALLOW_KEYWORD_MACROS
+#define ENABLE_OPT 1
 
 #include "sx/allocator.h"
 #include "sx/array.h"
@@ -99,6 +101,8 @@
 #include "SPIRV/GlslangToSpv.h"
 #include "SPIRV/SpvTools.h"
 #include "SPIRV/disassemble.h"
+#include "spirv-tools/libspirv.hpp"
+#include "spirv-tools/optimizer.hpp"
 
 #include "glslang/Public/ResourceLimits.h"
 #include "glslang/Public/ShaderLang.h"
@@ -124,14 +128,14 @@
 #define SJSON_IMPLEMENTATION
 #include "../3rdparty/sjson/sjson.h"
 
-#define VERSION_MAJOR 3
-#define VERSION_MINOR 0
-#define VERSION_SUB 0
+#define AXSLCC_VERSION_MAJOR 3
+#define AXSLCC_VERSION_MINOR 1
+#define AXSLCC_VERSION_REVISION 0
 
 using namespace axslc;
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
-static sc_file* g_sgs = nullptr;
+static sc_file* sc_file_handle = nullptr;
 
 struct p_define {
     char* def;
@@ -385,7 +389,7 @@ struct cmd_args {
 
 static void print_version()
 {
-    printf("axslcc v%d.%d.%d\n\nAxslcc suite maintained and supported by axmol community (axmol.dev)", VERSION_MAJOR, VERSION_MINOR, VERSION_SUB);
+    printf("axslcc v%d.%d.%d\n\nAxslcc suite maintained and supported by axmol community (axmol.dev)", AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR, AXSLCC_VERSION_REVISION);
 }
 
 static void print_help(sx_cmdline_context* ctx)
@@ -910,6 +914,10 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
                 sjson_put_bool(jctx, jres, "multisample", true);
             if (type.image.arrayed)
                 sjson_put_bool(jctx, jres, "array", true);
+            if (mask.get(spv::DecorationSamplerSlot)) {
+                sjson_put_int(jctx, jres, "sampler_slot",
+                    compiler.get_decoration(res.id, spv::DecorationSamplerSlot));
+            }
         } else if (res_type == RES_TYPE_VERTEX_INPUT) {
             sjson_put_string(jctx, jres, "type", resolve_variable_type(type));
         }
@@ -1132,7 +1140,11 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
             for (auto arr : type.array)
                 arr_sz += arr;
             t.count = arr_sz;
-            
+
+            if (compiler.has_decoration(res.id, spv::DecorationSamplerSlot))
+                t.sampler_slot = compiler.get_decoration(res.id, spv::DecorationSamplerSlot);
+            else
+                t.sampler_slot = 0;
             sx_mem_write_var(w, t);
         } else if (res_type == RES_TYPE_VERTEX_INPUT) {
             sc_refl_input i = { 0 };
@@ -1227,7 +1239,7 @@ static bool write_file(const std::string& filepath, const char* data, const std:
                 "// http://www.github.com/septag/glslcc\n"
                 "// \n"
                 "#pragma once\n\n",
-                VERSION_MAJOR, VERSION_MINOR, VERSION_SUB);
+                AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR, AXSLCC_VERSION_REVISION);
             sx_file_write_text(&writer, header);
         }
 
@@ -1296,7 +1308,7 @@ static bool write_file(const std::string& filepath, const char* data, const std:
     return true;
 }
 
-static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
+static int cross_compile(const cmd_args& args, const glslang::TIntermediate& ir, std::vector<uint32_t>& spirv,
     const char* filename, EShLanguage stage, int file_index)
 {
     sx_assert(!spirv.empty());
@@ -1395,11 +1407,26 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
         compiler->set_common_options(opts);
 
         std::string code;
-        if (args.lang != SHADER_LANG_SPIRV)
+        std::vector<uint32_t> clean_spirv;
+        if (args.lang == SHADER_LANG_SPIRV) {
+            spirv.clear();
+            glslang::SpvOptions spv_opts {
+                .generateDebugInfo = !!args.debug_info,
+                .stripDebugInfo = !args.debug_info,
+                .disableOptimizer = !args.optimize,
+                .optimizeSize = !!args.optimize,
+                .validate = true
+            };
+            spv::SpvBuildLogger logger;
+            glslang::GlslangToSpv(ir, spirv, &logger, &spv_opts);
+            if (!logger.getAllMessages().empty())
+                puts(logger.getAllMessages().c_str());
+        } else {
             code = compiler->compile();
+        }
 
         // Output code
-        if (g_sgs) {
+        if (sc_file_handle) {
             uint32_t sstage;
             switch (stage) {
             case EShLangVertex:
@@ -1424,20 +1451,20 @@ static int cross_compile(const cmd_args& args, std::vector<uint32_t>& spirv,
                     return -1;
                 }
 
-                sc_add_stage_code_bin(g_sgs, sstage, mem->data, mem->size);
+                sc_add_stage_code_bin(sc_file_handle, sstage, mem->data, mem->size);
                 sx_mem_destroy_block(mem);
             } else {
                 if (args.lang != SHADER_LANG_SPIRV) {
-                    sc_add_stage_code(g_sgs, sstage, code.c_str());
+                    sc_add_stage_code(sc_file_handle, sstage, code.c_str());
                 } else {
-                    sc_add_stage_code_bin(g_sgs, sstage, spirv.data(), static_cast<int>(spirv.size() * sizeof(uint32_t)));
+                    sc_add_stage_code_bin(sc_file_handle, sstage, spirv.data(), static_cast<int>(spirv.size() * sizeof(uint32_t)));
                 }
             }
 
             if (args.reflect) {
                 sx_mem_block* mem = nullptr;
                 auto refl_bytes = output_reflection_bin(args, *compiler, ress, args.out_filepath, stage, &mem);
-                sc_add_stage_reflect(g_sgs, sstage, mem->data, refl_bytes);
+                sc_add_stage_reflect(sc_file_handle, sstage, mem->data, refl_bytes);
                 sx_mem_destroy_block(mem);
             }
         } else {
@@ -1897,22 +1924,23 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
     }
 
     // Output and save SPIR-V for each shader
+    std::vector<uint32_t> spirv;
     for (int i = 0; i < sx_array_count(files); i++) {
-        std::vector<uint32_t> spirv;
+        spirv.clear();
+        auto ir = prog->getIntermediate(files[i].stage);
+        sx_assert(ir);
 
-        glslang::SpvOptions spv_opts;
-        spv_opts.validate = true;
-        spv_opts.generateDebugInfo = args.debug_info;
-        spv_opts.disableOptimizer = false;
-        spv_opts.optimizeSize = !!args.optimize;
+        glslang::SpvOptions spv_opts {
+            .generateDebugInfo = true,
+            .validate = false,
+            .allowNonStandardDecorations = true
+        };
         spv::SpvBuildLogger logger;
-        sx_assert(prog->getIntermediate(files[i].stage));
-
-        glslang::GlslangToSpv(*prog->getIntermediate(files[i].stage), spirv, &logger, &spv_opts);
+        glslang::GlslangToSpv(*ir, spirv, &logger, &spv_opts);
         if (!logger.getAllMessages().empty())
             puts(logger.getAllMessages().c_str());
 
-        if (cross_compile(args, spirv, files[i].filename, files[i].stage, i) != 0) {
+        if (cross_compile(args, *ir, spirv, files[i].filename, files[i].stage, i) != 0) {
             compile_files_ret(-1);
         }
     }
@@ -1957,9 +1985,9 @@ int main(int argc, char* argv[])
     const sx_cmdline_opt opts[] = {
         { "help", 'h', SX_CMDLINE_OPTYPE_NO_ARG, 0x0, 'h', "Print this help text", 0x0 },
         { "version", 'V', SX_CMDLINE_OPTYPE_FLAG_SET, &version, 1, "Print version", 0x0 },
-        { "vert", 'v', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'v', "Vertex shader source file", "Filepath" },
-        { "frag", 'f', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'f', "Fragment shader source file", "Filepath" },
-        { "compute", 'c', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'c', "Compute shader source file", "Filepath" },
+        { "vert", 0x0, SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'v', "Vertex shader source file", "Filepath" },
+        { "frag", 0x0, SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'f', "Fragment shader source file", "Filepath" },
+        { "compute", 0x0, SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'c', "Compute shader source file", "Filepath" },
         { "output", 'o', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'o', "Output file", "Filepath" },
         { "lang", 'l', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'l', "Convert to shader language", "essl/msl/hlsl/glsl/spirv" },
 
@@ -2004,7 +2032,8 @@ int main(int argc, char* argv[])
             0x0 },
 
         { "reflect", 'r', SX_CMDLINE_OPTYPE_OPTIONAL, 0x0, 'r', "Output shader reflection information to a json file", "Filepath" },
-        { "sgs", 'G', SX_CMDLINE_OPTYPE_FLAG_SET, &args.sc_file, 1, "Output file should be packed SGS format", "Filepath" },
+        { "sgs", 'G', SX_CMDLINE_OPTYPE_FLAG_SET, &args.sc_file, 1, "Output file should be packed axslcc spec binary format", "Filepath" },
+        { "sc", 'B', SX_CMDLINE_OPTYPE_FLAG_SET, &args.sc_file, 1, "Output file should be packed axslcc spec binary format", "Filepath" },
         { "bin", 'b', SX_CMDLINE_OPTYPE_FLAG_SET, &args.compile_bin, 1, "Compile to bytecode instead of source. requires ENABLE_D3D11_COMPILER build flag", 0x0 },
         { "debug", 'g', SX_CMDLINE_OPTYPE_FLAG_SET, &args.debug_info, 1, "Generate debug info for binary compilation, should come with --bin", 0x0 },
         { "optimize", 'O', SX_CMDLINE_OPTYPE_FLAG_SET, &args.optimize, 1, "Optimize shader for release compilation", 0x0 },
@@ -2180,17 +2209,17 @@ int main(int argc, char* argv[])
             sx_assert(0);
             break;
         }
-        g_sgs = sc_create_file(g_alloc, args.out_filepath, slang, args.profile_ver);
-        sx_assert(g_sgs);
+        sc_file_handle = sc_create_file(g_alloc, args.out_filepath, AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR, slang, args.profile_ver);
+        sx_assert(sc_file_handle);
     }
 
     int r = compile_files(args, *GetDefaultResources());
 
-    if (g_sgs) {
-        if (r == 0 && !sc_commit(g_sgs)) {
+    if (sc_file_handle) {
+        if (r == 0 && !sc_commit(sc_file_handle)) {
             printf("Writing SGS file '%s' failed\n", args.out_filepath);
         }
-        sc_destroy_file(g_sgs);
+        sc_destroy_file(sc_file_handle);
     }
 
     sx_cmdline_destroy_context(cmdline, g_alloc);

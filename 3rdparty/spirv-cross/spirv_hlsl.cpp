@@ -4251,13 +4251,16 @@ string CompilerHLSL::to_resource_binding(const SPIRVariable &var)
 	return to_resource_register(resource_flags, space, binding, desc_set);
 }
 
+// axslcc spec
 string CompilerHLSL::to_resource_binding_sampler(const SPIRVariable &var)
 {
+	const auto decoration = hlsl_options.shader_model >= 51 ? DecorationSamplerSlot : DecorationBinding;
+
 	// For combined image samplers.
-	if (!has_decoration(var.self, DecorationBinding))
+	if (!has_decoration(var.self, decoration))
 		return "";
 
-	return to_resource_register(HLSL_BINDING_AUTO_SAMPLER_BIT, 's', get_decoration(var.self, DecorationBinding),
+	return to_resource_register(HLSL_BINDING_AUTO_SAMPLER_BIT, 's', get_decoration(var.self, decoration),
 	                            get_decoration(var.self, DecorationDescriptorSet));
 }
 

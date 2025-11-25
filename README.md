@@ -9,11 +9,15 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.1.0
+
+- Add layout decoration 'sampler_slot' for combined texture sampler uniforms
+- 
+
 ### 3.0.0
 
 - Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
-- Update spirv-cross: adec7ac(5132) (Until Nov 13, 2025)
-- Update glslang: 7099c12(5358) (Until Nov 13, 2025)
+- Update glslang: 6cfcfaf(5371) (Until Nov 24, 2025)
 
 ### 1.15.0
 

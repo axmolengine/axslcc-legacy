@@ -27,7 +27,9 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
     - name: Check release version
       id: check_ver
@@ -45,7 +47,7 @@ jobs:
     
     - name: Download artifacts from workflow build
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
-      uses: dawidd6/action-download-artifact@v2
+      uses: dawidd6/action-download-artifact@v11
       with:
         # Optional, GitHub token
         github_token: ${{secrets.GITHUB_TOKEN}}
@@ -78,6 +80,7 @@ jobs:
       with:
         tag_name: ${{ steps.check_ver.outputs.release_tag }}
         name: ${{ steps.check_ver.outputs.release_tag }}
+        target_commitish: "${{ github.head_ref || github.ref_name }}"
         files: |
           ./pkg_dir/*
       env:

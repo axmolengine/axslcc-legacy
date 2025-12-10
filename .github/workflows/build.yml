@@ -45,7 +45,7 @@ jobs:
     - name: build
       shell: pwsh
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+        cmake -B build -DCMAKE_BUILD_TYPE=Release  -DCMAKE_OSX_ARCHITECTURES=arm64 "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
         cmake --build build --config Release --target axslcc
         lipo -info ./build/src/axslcc
     - name: Upload
@@ -55,17 +55,17 @@ jobs:
         name: axslcc-osx-arm64
 
   osx-x64:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v6
     - name: Setup Xcode version
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '15.2'
+        xcode-version: '16.4'
     - name: build
       shell: pwsh
       run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=Release "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
+        cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15"
         cmake --build build --config Release --target axslcc
         lipo -info ./build/src/axslcc
     - name: Upload

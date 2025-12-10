@@ -5,10 +5,15 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## build
 
-- `c++17` required
+- `c++20` required
 
 ## ChangeLog
 
+### 3.2.0
+
+- Unify and re-enumerate vertex input & uniform variable types (Break changes)
+- Update spirv-cross: b8bd9d5(5153) (Until Dec 2, 2025)
+- Update glslang: 0036567(5381) (Until Dec 10, 2025)
 
 ### 3.1.1
 

@@ -1,8 +1,8 @@
 diff --git a/SPIRV/GlslangToSpv.cpp b/SPIRV/GlslangToSpv.cpp
-index 5c2f4094..118f8527 100644
+index 1a5c40c5..6a09804c 100644
 --- a/SPIRV/GlslangToSpv.cpp
 +++ b/SPIRV/GlslangToSpv.cpp
-@@ -10830,6 +10830,14 @@ spv::Id TGlslangToSpvTraverser::getSymbolId(const glslang::TIntermSymbol* symbol
+@@ -10831,6 +10831,14 @@ spv::Id TGlslangToSpvTraverser::getSymbolId(const glslang::TIntermSymbol* symbol
          // default to 0
          builder.addDecoration(id, spv::Decoration::Binding, 0);
      }
@@ -135,10 +135,10 @@ index 4eec55b5..caa880fd 100644
  
  #ifdef __cplusplus
 diff --git a/glslang/MachineIndependent/ParseHelper.cpp b/glslang/MachineIndependent/ParseHelper.cpp
-index 8f1a3817..98160a6e 100644
+index 38ce7bd6..90f1816d 100644
 --- a/glslang/MachineIndependent/ParseHelper.cpp
 +++ b/glslang/MachineIndependent/ParseHelper.cpp
-@@ -7070,6 +7070,10 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
+@@ -7075,6 +7075,10 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
              error(loc, "needs a literal integer", "binding", "");
          return;
      }
@@ -149,7 +149,7 @@ index 8f1a3817..98160a6e 100644
      if (id == "constant_id") {
          requireSpv(loc, "constant_id");
          if (value >= (int)TQualifier::layoutSpecConstantIdEnd) {
-@@ -7408,6 +7412,8 @@ void TParseContext::mergeObjectLayoutQualifiers(TQualifier& dst, const TQualifie
+@@ -7413,6 +7417,8 @@ void TParseContext::mergeObjectLayoutQualifiers(TQualifier& dst, const TQualifie
              dst.layoutSet = src.layoutSet;
          if (src.layoutBinding != TQualifier::layoutBindingEnd)
              dst.layoutBinding = src.layoutBinding;

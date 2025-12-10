@@ -74,6 +74,8 @@
 //      3.0.0       Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
 //      3.1.0       Add layout decoration 'sampler_slot` support for uniform sampler2D
 //      3.1.1       Register builtin sampler state symbols
+// 
+//      3.2.0       Unify and re-enumerate vertex input & uniform variable types
 //
 
 /**
@@ -98,6 +100,7 @@
 #include <stdlib.h>
 
 #include <string>
+#include <iterator>
 
 #include "SPIRV/GlslangToSpv.h"
 #include "SPIRV/SpvTools.h"
@@ -130,8 +133,8 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define AXSLCC_VERSION_MAJOR 3
-#define AXSLCC_VERSION_MINOR 1
-#define AXSLCC_VERSION_REVISION 1
+#define AXSLCC_VERSION_MINOR 2
+#define AXSLCC_VERSION_REVISION 0
 
 using namespace axslc;
 
@@ -642,29 +645,32 @@ enum resource_type {
     RES_TYPE_UNIFORM_BUFFER
 };
 
-struct uniform_type_mapping {
+struct variable_type_mapping {
     spirv_cross::SPIRType::BaseType base_type;
     int vec_size;
     int columns;
     const char* type_str;
-    uint32_t fourcc;
+    uint16_t sc_type;
 };
 
-static const uniform_type_mapping k_uniform_map[] = {
-    { spirv_cross::SPIRType::Float, 1, 1, "float", SC_VERTEXFORMAT_FLOAT },
-    { spirv_cross::SPIRType::Float, 2, 1, "float2", SC_VERTEXFORMAT_FLOAT2 },
-    { spirv_cross::SPIRType::Float, 3, 1, "float3", SC_VERTEXFORMAT_FLOAT3 },
-    { spirv_cross::SPIRType::Float, 4, 1, "float4", SC_VERTEXFORMAT_FLOAT4 },
-    { spirv_cross::SPIRType::Float, 3, 3, "mat3", SC_VERTEXFORMAT_MAT3 },
-    { spirv_cross::SPIRType::Float, 4, 4, "mat4", SC_VERTEXFORMAT_MAT4 },
-    { spirv_cross::SPIRType::Int, 1, 1, "int", SC_VERTEXFORMAT_INT },
-    { spirv_cross::SPIRType::Int, 2, 1, "int2", SC_VERTEXFORMAT_INT2 },
-    { spirv_cross::SPIRType::Int, 3, 1, "int3", SC_VERTEXFORMAT_INT3 },
-    { spirv_cross::SPIRType::Int, 4, 1, "int4", SC_VERTEXFORMAT_INT4 },
-    { spirv_cross::SPIRType::Half, 4, 1, "float", SC_VERTEXFORMAT_FLOAT },
-    { spirv_cross::SPIRType::Half, 4, 2, "float2", SC_VERTEXFORMAT_FLOAT2 },
-    { spirv_cross::SPIRType::Half, 4, 3, "float3", SC_VERTEXFORMAT_FLOAT3 },
-    { spirv_cross::SPIRType::Half, 4, 4, "float4", SC_VERTEXFORMAT_FLOAT4 }
+static const variable_type_mapping k_variable_type_map[] = {
+    { spirv_cross::SPIRType::Float, 1, 1, "float", SC_TYPE_FLOAT },
+    { spirv_cross::SPIRType::Float, 2, 1, "float2", SC_TYPE_FLOAT2 },
+    { spirv_cross::SPIRType::Float, 3, 1, "float3", SC_TYPE_FLOAT3 },
+    { spirv_cross::SPIRType::Float, 4, 1, "float4", SC_TYPE_FLOAT4 },
+    { spirv_cross::SPIRType::Float, 3, 3, "mat3", SC_TYPE_MAT3 },
+    { spirv_cross::SPIRType::Float, 4, 4, "mat4", SC_TYPE_MAT4 },
+    { spirv_cross::SPIRType::Int, 1, 1, "int", SC_TYPE_INT },
+    { spirv_cross::SPIRType::Int, 2, 1, "int2", SC_TYPE_INT2 },
+    { spirv_cross::SPIRType::Int, 3, 1, "int3", SC_TYPE_INT3 },
+    { spirv_cross::SPIRType::Int, 4, 1, "int4", SC_TYPE_INT4 },
+    { spirv_cross::SPIRType::Half, 4, 1, "float", SC_TYPE_HALF },
+    { spirv_cross::SPIRType::Half, 4, 2, "float2", SC_TYPE_HALF2 },
+    { spirv_cross::SPIRType::Half, 4, 3, "float3", SC_TYPE_HALF3 },
+    { spirv_cross::SPIRType::Half, 4, 4, "float4", SC_TYPE_HALF4 },
+    { spirv_cross::SPIRType::UShort, 4, 1, "ushort4", SC_TYPE_USHORT4 },
+    { spirv_cross::SPIRType::UShort, 2, 1, "ushort2", SC_TYPE_USHORT2 },
+    { spirv_cross::SPIRType::UByte, 4, 1, "ubyte4", SC_TYPE_UBYTE4 },
 };
 
 static const char* spirv_basetype_to_name(int basetype)
@@ -678,6 +684,10 @@ static const char* spirv_basetype_to_name(int basetype)
         return "half";
     case spirv_cross::SPIRType::Boolean:
         return "bool";
+    case spirv_cross::SPIRType::UShort:
+        return "ushort";
+    case spirv_cross::SPIRType::UByte:
+        return "ubyte";
     default:
         return "unknown";
     }
@@ -725,17 +735,6 @@ enum ImageFormat {
     ImageFormatR16ui = 38,
     ImageFormatR8ui = 39,
     ImageFormatMax = 0x7fffffff,
-};
-
-enum Dim {
-    Dim1D = 0,
-    Dim2D = 1,
-    Dim3D = 2,
-    DimCube = 3,
-    DimRect = 4,
-    DimBuffer = 5,
-    DimSubpassData = 6,
-    DimMax = 0x7fffffff,
 };
 
 const char* k_texture_format_str[spv::ImageFormatR8ui + 1] = {
@@ -810,10 +809,10 @@ static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
 {
 
     auto resolve_variable_type = [](const spirv_cross::SPIRType& type) -> const char* {
-        int count = sizeof(k_uniform_map) / sizeof(uniform_type_mapping);
+        int count = static_cast<int>(std::size(k_variable_type_map));
         for (int i = 0; i < count; i++) {
-            if (k_uniform_map[i].base_type == type.basetype && k_uniform_map[i].vec_size == type.vecsize && k_uniform_map[i].columns == type.columns) {
-                return k_uniform_map[i].type_str;
+            if (k_variable_type_map[i].base_type == type.basetype && k_variable_type_map[i].vec_size == type.vecsize && k_variable_type_map[i].columns == type.columns) {
+                return k_variable_type_map[i].type_str;
             }
         }
 
@@ -1035,11 +1034,11 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
     resource_type res_type = RES_TYPE_REGULAR,
     bool flatten_ubo = false)
 {
-    auto resolve_variable_type = [](const spirv_cross::SPIRType& type) -> uint32_t {
-        int count = sizeof(k_uniform_map) / sizeof(uniform_type_mapping);
+    auto resolve_variable_type = [](const spirv_cross::SPIRType& type) -> uint16_t {
+        int count = static_cast<int>(std::size(k_variable_type_map));
         for (int i = 0; i < count; i++) {
-            if (k_uniform_map[i].base_type == type.basetype && k_uniform_map[i].vec_size == type.vecsize && k_uniform_map[i].columns == type.columns) {
-                return k_uniform_map[i].fourcc;
+            if (k_variable_type_map[i].base_type == type.basetype && k_variable_type_map[i].vec_size == type.vecsize && k_variable_type_map[i].columns == type.columns) {
+                return k_variable_type_map[i].sc_type;
             }
         }
 
@@ -1135,7 +1134,7 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
                     um.offset = compiler.type_struct_member_offset(type, member_idx);
                     um.size_bytes = static_cast<uint32_t>(compiler.get_declared_struct_member_size(type, member_idx));
                     um.array_size = static_cast<uint16_t>(compute_array_size(member_type));
-                    um.format = resolve_variable_type(member_type);
+                    um.var_type = resolve_variable_type(member_type);
 
                     if (is_msl) {
                         auto align = resolve_variable_align(member_type);
@@ -1182,10 +1181,10 @@ static void output_resource_info_bin(sx_mem_writer* w, uint32_t* num_values,
             sc_refl_input i = { 0 };
 
             sx_strcpy(i.name, sizeof(i.name), name.c_str());
-            i.loc = loc;
+            i.location = loc;
             sx_strcpy(i.semantic, sizeof(i.semantic), k_attrib_sem_names[loc]);
             i.semantic_index = k_attrib_sem_indices[loc];
-            i.format = resolve_variable_type(type);
+            i.var_type = resolve_variable_type(type);
             sx_mem_write_var(w, i);
         } else if (res_type == RES_TYPE_SSBO) {
             sc_refl_buffer b = { 0 };

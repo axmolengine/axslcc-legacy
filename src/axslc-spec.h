@@ -29,14 +29,6 @@ namespace axslc
 #define SC_STAGE_FRAGMENT   sc_makefourcc('F', 'R', 'A', 'G')
 #define SC_STAGE_COMPUTE    sc_makefourcc('C', 'O', 'M', 'P')
 
-#define SC_IMAGEDIM_1D      sc_makefourcc('1', 'D', ' ', ' ')
-#define SC_IMAGEDIM_2D      sc_makefourcc('2', 'D', ' ', ' ')
-#define SC_IMAGEDIM_3D      sc_makefourcc('3', 'D', ' ', ' ')
-#define SC_IMAGEDIM_CUBE    sc_makefourcc('C', 'U', 'B', 'E')
-#define SC_IMAGEDIM_RECT    sc_makefourcc('R', 'E', 'C', 'T')
-#define SC_IMAGEDIM_BUFFER  sc_makefourcc('B', 'U', 'F', 'F')
-#define SC_IMAGEDIM_SUBPASS sc_makefourcc('S', 'U', 'B', 'P')
-
 enum Dim : uint16_t
 {
     Dim1D          = 0,
@@ -72,10 +64,6 @@ enum SCType : uint16_t
     SC_TYPE_HALF3,
     SC_TYPE_HALF2,
     SC_TYPE_HALF,
-    // Samplers
-    SC_TYPE_SAMPLER_2D,
-    SC_TYPE_SAMPLER_2D_ARRAY,
-    SC_TYPE_SAMPLER_CUBE,
 };
 
 // sc chunk aka file header

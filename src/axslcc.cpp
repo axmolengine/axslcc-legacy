@@ -790,16 +790,6 @@ const char* k_texture_dim_str[spv::DimSubpassData + 1] = {
     "subpass_data"
 };
 
-const uint32_t k_texture_dim_fourcc[spv::DimSubpassData + 1] = {
-    SC_IMAGEDIM_1D,
-    SC_IMAGEDIM_2D,
-    SC_IMAGEDIM_3D,
-    SC_IMAGEDIM_CUBE,
-    SC_IMAGEDIM_RECT,
-    SC_IMAGEDIM_BUFFER,
-    SC_IMAGEDIM_SUBPASS
-};
-
 // https://github.com/KhronosGroup/SPIRV-Cross/wiki/Reflection-API-user-guide
 static void output_resource_info_json(sjson_context* jctx, sjson_node* jparent,
     const spirv_cross::Compiler& compiler,

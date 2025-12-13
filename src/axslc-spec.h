@@ -13,21 +13,23 @@ namespace axslc
 
 #pragma pack(push, 1)
 
-#define SC_CHUNK            sc_makefourcc('A', 'X', 'S', 'C')
-#define SC_CHUNK_STAG       sc_makefourcc('S', 'T', 'A', 'G')
-#define SC_CHUNK_REFL       sc_makefourcc('R', 'E', 'F', 'L')
-#define SC_CHUNK_CODE       sc_makefourcc('C', 'O', 'D', 'E')
-#define SC_CHUNK_DATA       sc_makefourcc('D', 'A', 'T', 'A')
+#define SC_CHUNK          sc_makefourcc('A', 'X', 'S', 'C')
+#define SC_CHUNK_STAG     sc_makefourcc('S', 'T', 'A', 'G')
+#define SC_CHUNK_REFL     sc_makefourcc('R', 'E', 'F', 'L')
+#define SC_CHUNK_CODE     sc_makefourcc('C', 'O', 'D', 'E')
+#define SC_CHUNK_DATA     sc_makefourcc('D', 'A', 'T', 'A')
 
-#define SC_LANG_GLES        sc_makefourcc('G', 'L', 'E', 'S')
-#define SC_LANG_HLSL        sc_makefourcc('H', 'L', 'S', 'L')
-#define SC_LANG_GLSL        sc_makefourcc('G', 'L', 'S', 'L')
-#define SC_LANG_MSL         sc_makefourcc('M', 'S', 'L', ' ')
-#define SC_LANG_SPIRV       sc_makefourcc('S', 'P', 'I', 'R')
+#define SC_LANG_GLES      sc_makefourcc('G', 'L', 'E', 'S')
+#define SC_LANG_HLSL      sc_makefourcc('H', 'L', 'S', 'L')
+#define SC_LANG_GLSL      sc_makefourcc('G', 'L', 'S', 'L')
+#define SC_LANG_MSL       sc_makefourcc('M', 'S', 'L', ' ')
+#define SC_LANG_SPIRV     sc_makefourcc('S', 'P', 'I', 'R')
 
-#define SC_STAGE_VERTEX     sc_makefourcc('V', 'E', 'R', 'T')
-#define SC_STAGE_FRAGMENT   sc_makefourcc('F', 'R', 'A', 'G')
-#define SC_STAGE_COMPUTE    sc_makefourcc('C', 'O', 'M', 'P')
+#define SC_STAGE_VERTEX   sc_makefourcc('V', 'E', 'R', 'T')
+#define SC_STAGE_FRAGMENT sc_makefourcc('F', 'R', 'A', 'G')
+#define SC_STAGE_COMPUTE  sc_makefourcc('C', 'O', 'M', 'P')
+
+#define SC_NAME_LEN       32
 
 enum Dim : uint16_t
 {
@@ -78,7 +80,7 @@ struct sc_chunk
 // REFL
 struct sc_chunk_refl
 {
-    char name[32];
+    char name[SC_NAME_LEN];
     uint32_t num_inputs;
     uint32_t num_textures;
     uint32_t num_uniform_buffers;
@@ -96,8 +98,8 @@ struct sc_chunk_refl
 
 struct sc_refl_input
 {
-    char name[32];
-    char semantic[32];
+    char name[SC_NAME_LEN];
+    char semantic[SC_NAME_LEN];
     int32_t location;
     uint16_t semantic_index;
     uint16_t var_type;
@@ -106,7 +108,7 @@ struct sc_refl_input
 // @since 3.0.0, modified
 struct sc_refl_texture
 {
-    char name[32];
+    char name[SC_NAME_LEN];
     int32_t binding;
     uint8_t image_dim;        // @see enum Dim: Dim1D, Dim2D, Dim3D, DimCube ...
     uint8_t multisample : 1;  // whether sampler2DMS
@@ -126,7 +128,7 @@ struct sc_refl_buffer
 
 typedef struct sc_refl_uniformbuffer
 {
-    char name[32];
+    char name[SC_NAME_LEN];
     int32_t binding;
     uint32_t size_bytes;
     uint16_t array_size;
@@ -135,7 +137,7 @@ typedef struct sc_refl_uniformbuffer
 
 typedef struct sc_refl_uniformbuffer_member
 {
-    char name[32];
+    char name[SC_NAME_LEN];
     int32_t offset;
     uint32_t size_bytes;
     uint16_t array_size;

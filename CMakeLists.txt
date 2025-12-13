@@ -71,6 +71,7 @@ if (NOT (IS_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/3rdparty/glslang"))
     message(STATUS "Downloading glslang ...")
     find_program(GIT_COMMAND NAMES git REQUIRED)
     execute_process(COMMAND ${GIT_COMMAND} clone "https://github.com/KhronosGroup/glslang.git" "${CMAKE_CURRENT_LIST_DIR}/3rdparty/glslang")
+    execute_process(COMMAND ${GIT_COMMAND} -C "${CMAKE_CURRENT_LIST_DIR}/3rdparty/glslang" checkout "dffbc79733f63435ae24e73f64384f1374e0dda2")
     find_program(PYTHON_COMMAND NAMES python3 python REQUIRED)
     execute_process(COMMAND ${PYTHON_COMMAND} "${CMAKE_CURRENT_LIST_DIR}/3rdparty/glslang/update_glslang_sources.py" 
         WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/3rdparty/glslang")

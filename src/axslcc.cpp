@@ -76,6 +76,7 @@
 //      3.1.1       Register builtin sampler state symbols
 // 
 //      3.2.0       Unify and re-enumerate vertex input & uniform variable types
+//      3.3.0       Write sc size into binary header
 //
 
 /**
@@ -133,7 +134,7 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define AXSLCC_VERSION_MAJOR 3
-#define AXSLCC_VERSION_MINOR 2
+#define AXSLCC_VERSION_MINOR 3
 #define AXSLCC_VERSION_REVISION 0
 
 using namespace axslc;

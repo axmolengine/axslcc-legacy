@@ -148,16 +148,18 @@ bool sc_commit(sc_file* f)
 
     // write main chunk
     const uint32_t sc_magic = SC_CHUNK;
-    const uint32_t sc_size = 0;       // doesn't matter
-    sx_file_write_var(&writer, sc_magic);
-    sx_file_write_var(&writer, sc_size);
+    uint32_t sc_size = 0; // place holder
+
+    sc_size += sx_file_write_var(&writer, sc_magic);
+    const uint32_t sc_size_offset = sizeof(sc_magic);
+    sc_size += sx_file_write_var(&writer, sc_size);
 
     sc_chunk sc_header;
     sc_header.major = f->major_ver;
     sc_header.minor = f->minor_ver;
     sc_header.lang = f->lang;
     sc_header.profile_ver = f->profile_ver;
-    sx_file_write_var(&writer, sc_header);
+    sc_size += sx_file_write_var(&writer, sc_header);
 
     // write stages
     for (int i = 0; i < sx_array_count(f->stages); i++) {
@@ -174,33 +176,37 @@ bool sc_commit(sc_file* f)
         
         // `STAG`
         const uint32_t _stage = SC_CHUNK_STAG;
-        sx_file_write_var(&writer, _stage);
-        sx_file_write_var(&writer, stage_size);
-        sx_file_write_var(&writer, s->stage);
+        sc_size += sx_file_write_var(&writer, _stage);
+        sc_size += sx_file_write_var(&writer, stage_size);
+        sc_size += sx_file_write_var(&writer, s->stage);
 
         if (code_size) {
             // `CODE`
             const uint32_t _code = SC_CHUNK_CODE;
             const uint32_t code_size = sx_strlen(s->code) + 1;
-            sx_file_write_var(&writer, _code);
-            sx_file_write_var(&writer, code_size);
-            sx_file_write(&writer, s->code, code_size);
+            sc_size += sx_file_write_var(&writer, _code);
+            sc_size += sx_file_write_var(&writer, code_size);
+            sc_size += sx_file_write(&writer, s->code, code_size);
         } else if (data_size) {
             // `DATA`
             const uint32_t _data = SC_CHUNK_DATA;
-            sx_file_write_var(&writer, _data);
-            sx_file_write_var(&writer, s->data_size);
-            sx_file_write(&writer, s->data, s->data_size);
+            sc_size += sx_file_write_var(&writer, _data);
+            sc_size += sx_file_write_var(&writer, s->data_size);
+            sc_size += sx_file_write(&writer, s->data, s->data_size);
         }
 
         // `REFL`
         if (s->refl) {
             const uint32_t _refl = SC_CHUNK_REFL;
-            sx_file_write_var(&writer, _refl);
-            sx_file_write_var(&writer, s->refl_size);
-            sx_file_write(&writer, s->refl, s->refl_size);
+            sc_size += sx_file_write_var(&writer, _refl);
+            sc_size += sx_file_write_var(&writer, s->refl_size);
+            sc_size += sx_file_write(&writer, s->refl, s->refl_size);
         }
     }
+
+    // finish sc size
+    sx_file_seekw(&writer, sc_size_offset, SX_WHENCE_BEGIN);
+    sx_file_write_var(&writer, sc_size);
 
     sx_file_close_writer(&writer);
 

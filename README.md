@@ -9,6 +9,11 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.3.0
+
+- Write sc size into binary header
+- Update glslang: dffbc79(5382) (Until Dec 12, 2025)
+
 ### 3.2.0
 
 - Unify and re-enumerate vertex input & uniform variable types (Break changes)

@@ -85,4 +85,4 @@ jobs:
           ./pkg_dir/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_REPOSITORY: axmolengine/axslcc
+        GITHUB_REPOSITORY: simdsoft/axslcc

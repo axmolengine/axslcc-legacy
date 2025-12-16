@@ -21,7 +21,7 @@ jobs:
         path: ./build/src/Release/axslcc.exe
         name: axslcc-win64
   linux:
-    runs-on: ubuntu-latest
+    runs-on: debian-11 # self-hosted on org simdsoft, @halx99 personal machine
     steps:
     - uses: actions/checkout@v6
     - name: build

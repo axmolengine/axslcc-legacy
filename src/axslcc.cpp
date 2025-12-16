@@ -426,7 +426,7 @@ struct cmd_args {
 
 static void print_version()
 {
-    printf("axslcc v%d.%d.%d\n\nAxslcc suite maintained and supported by axmol community (axmol.dev)", AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR, AXSLCC_VERSION_REVISION);
+    printf("axslcc v%d.%d.%d\n\nAxslcc suite maintained and supported by axmol community (axmol.dev)\n", AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR, AXSLCC_VERSION_REVISION);
 }
 
 static void print_help(sx_cmdline_context* ctx)

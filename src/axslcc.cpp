@@ -77,6 +77,7 @@
 // 
 //      3.2.0       Unify and re-enumerate vertex input & uniform variable types
 //      3.3.0       Write sc size into binary header
+//      3.3.1       Use debian-11 to build linux
 //
 
 /**
@@ -135,7 +136,7 @@
 
 #define AXSLCC_VERSION_MAJOR 3
 #define AXSLCC_VERSION_MINOR 3
-#define AXSLCC_VERSION_REVISION 0
+#define AXSLCC_VERSION_REVISION 1
 
 using namespace axslc;
 

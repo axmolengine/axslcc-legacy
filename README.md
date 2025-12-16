@@ -9,6 +9,10 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.3.1
+
+- Use debian-11 do build linux executable
+
 ### 3.3.0
 
 - Write sc size into binary header

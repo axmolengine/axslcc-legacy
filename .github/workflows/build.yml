@@ -16,7 +16,7 @@ jobs:
         cmake -B build
         cmake --build build --config Release --target axslcc
     - name: Upload
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         path: ./build/src/Release/axslcc.exe
         name: axslcc-win64
@@ -30,7 +30,7 @@ jobs:
         cmake -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release --target axslcc
     - name: Upload
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         path: ./build/src/axslcc
         name: axslcc-linux
@@ -49,7 +49,7 @@ jobs:
         cmake --build build --config Release --target axslcc
         lipo -info ./build/src/axslcc
     - name: Upload
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         path: ./build/src/axslcc
         name: axslcc-osx-arm64
@@ -69,7 +69,7 @@ jobs:
         cmake --build build --config Release --target axslcc
         lipo -info ./build/src/axslcc
     - name: Upload
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         path: ./build/src/axslcc
         name: axslcc-osx-x64

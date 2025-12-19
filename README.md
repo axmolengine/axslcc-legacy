@@ -11,7 +11,7 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ### 3.3.1
 
-- Use debian-11 do build linux executable
+- Use debian-11 do build linux executable (self-hosted runner)
 
 ### 3.3.0
 
@@ -37,13 +37,14 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 - Optimized sc_refl_texture by introducing field 'count' to clearly represent descriptor array length
 - Update glslang: 6cfcfaf(5371) (Until Nov 24, 2025)
 
-### 1.15.0
+### 1.14.0
 
+- Update glslang: dffbc79(5382) (Until Dec 12, 2025)
+- Update spirv-cross: b8bd9d5(5153) (Until Dec 2, 2025)
 - Fix spirv code output truncation when --sgs set
 - Add --profile version support for SPIRV (default: 100)
-- Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
-- Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
 - Remove SPVRemapper linkage
+- Build linux executable on debian-11 (self-hosted runner)
 
 ### 1.13.2
 

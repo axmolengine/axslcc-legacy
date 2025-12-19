@@ -35,12 +35,12 @@ jobs:
       id: check_ver
       shell: pwsh
       run: |
+        # commit message template: Version 1.8.0
         $commit_msg = "$(git show -s --format=%s)"
-        echo "commit_msg: $commit_msg"
-        $matchInfo = [Regex]::Match($commit_msg, '\[release\s(\d+\.)+(-)?(\*|\d+)\]')
-        if ($matchInfo.Success) { $matchInfo = [Regex]::Match($matchInfo.Value, '(\d+\.)+(-)?(\*|\d+)') }
-        if (!$matchInfo.Success) { $matchInfo = [Regex]::Match('${{github.event.inputs.version}}', '(\d+\.)+(-)?(\*|\d+)') }
-        $release_ver = if($matchInfo.Success) { $matchInfo.Value } else { '' }
+        echo "Parsing release version from commit message: $commit_msg"
+        $matchInfo = [Regex]::Match($commit_msg, '^Version\s+(?<ver>\d+\.\d+\.\d+)$')
+        if(!$matchInfo.Success) { $matchInfo = [Regex]::Match('${{github.event.inputs.version}}', '^(?<ver>\d+\.\d+\.\d+(-\w+)?)$') }
+        if($matchInfo.Success) { $release_ver = $matchInfo.Groups['ver'].Value } else { $release_ver='' }
         echo "release_ver=$release_ver"
         echo "release_ver=$release_ver" >> ${env:GITHUB_OUTPUT}
         echo "release_tag=v$release_ver" >> ${env:GITHUB_OUTPUT}

@@ -227,6 +227,11 @@ public:
 	void unset_hlsl_aux_buffer_binding(HLSLAuxBinding binding);
 	bool is_hlsl_aux_buffer_binding_used(HLSLAuxBinding binding) const;
 
+	// --- start of axslcc spec
+	void add_hlsl_sampler_state(uint32_t slot, const std::string &sampler_state_symbol);
+	uint32_t resolve_sampler_variable(uint32_t id) const;
+	// === end of axslcc spec
+
 private:
 	std::string type_to_glsl(const SPIRType &type, uint32_t id = 0) override;
 	std::string image_type_hlsl(const SPIRType &type, uint32_t id);
@@ -298,6 +303,7 @@ private:
 	SPIRType::BaseType get_builtin_basetype(BuiltIn builtin, SPIRType::BaseType default_type) override;
 
 	bool is_hlsl_force_storage_buffer_as_uav(ID id) const;
+	bool is_hidden_io_variable(const SPIRVariable &var) const;
 
 	Options hlsl_options;
 
@@ -318,6 +324,8 @@ private:
 	bool requires_scalar_reflect = false;
 	bool requires_scalar_refract = false;
 	bool requires_scalar_faceforward = false;
+
+	std::unordered_map<uint32_t, std::string> sampler_registry; // axslcc spec
 
 	struct TextureSizeVariants
 	{

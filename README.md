@@ -5,17 +5,17 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## build
 
-- `c++17` required
+- `c++20` required
 
 ## ChangeLog
+### 1.14.0
 
-### 1.15.0
-
+- Update glslang: dffbc79(5382) (Until Dec 12, 2025)
+- Update spirv-cross: b8bd9d5(5153) (Until Dec 2, 2025)
 - Fix spirv code output truncation when --sgs set
 - Add --profile version support for SPIRV (default: 100)
-- Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
-- Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
 - Remove SPVRemapper linkage
+- Build linux executable on debian-11 (self-hosted runner)
 
 ### 1.13.2
 

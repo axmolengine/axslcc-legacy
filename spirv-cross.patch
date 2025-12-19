@@ -1,0 +1,310 @@
+diff --git a/spirv.h b/spirv.h
+index 26bc6d9d..7bb01b3e 100644
+--- a/spirv.h
++++ b/spirv.h
+@@ -645,6 +645,7 @@ typedef enum SpvDecoration_ {
+     SpvDecorationConditionalINTEL = 6247,
+     SpvDecorationCacheControlLoadINTEL = 6442,
+     SpvDecorationCacheControlStoreINTEL = 6443,
++	SpvDecorationSamplerSlot = 7000, // axslcc spec
+     SpvDecorationMax = 0x7fffffff,
+ } SpvDecoration;
+ 
+@@ -3693,6 +3694,7 @@ inline const char* SpvDecorationToString(SpvDecoration value) {
+     case SpvDecorationIndex: return "Index";
+     case SpvDecorationBinding: return "Binding";
+     case SpvDecorationDescriptorSet: return "DescriptorSet";
++	case SpvDecorationSamplerSlot: return "SamplerSlot"; // axslcc spec
+     case SpvDecorationOffset: return "Offset";
+     case SpvDecorationXfbBuffer: return "XfbBuffer";
+     case SpvDecorationXfbStride: return "XfbStride";
+diff --git a/spirv.hpp b/spirv.hpp
+index 086fcc48..1c0a6735 100644
+--- a/spirv.hpp
++++ b/spirv.hpp
+@@ -641,6 +641,7 @@ enum Decoration {
+     DecorationConditionalINTEL = 6247,
+     DecorationCacheControlLoadINTEL = 6442,
+     DecorationCacheControlStoreINTEL = 6443,
++	DecorationSamplerSlot = 7000, // axslcc spec
+     DecorationMax = 0x7fffffff,
+ };
+ 
+@@ -3689,6 +3690,7 @@ inline const char* DecorationToString(Decoration value) {
+     case DecorationIndex: return "Index";
+     case DecorationBinding: return "Binding";
+     case DecorationDescriptorSet: return "DescriptorSet";
++    case DecorationSamplerSlot: return "SamplerSlot";
+     case DecorationOffset: return "Offset";
+     case DecorationXfbBuffer: return "XfbBuffer";
+     case DecorationXfbStride: return "XfbStride";
+diff --git a/spirv_common.hpp b/spirv_common.hpp
+index 02d84230..5e81d9a4 100644
+--- a/spirv_common.hpp
++++ b/spirv_common.hpp
+@@ -1798,6 +1798,7 @@ struct Meta
+ 		uint32_t component = 0;
+ 		uint32_t set = 0;
+ 		uint32_t binding = 0;
++		uint32_t sampler_slot = 0; // axslcc spec
+ 		uint32_t offset = 0;
+ 		uint32_t xfb_buffer = 0;
+ 		uint32_t xfb_stride = 0;
+diff --git a/spirv_cross_parsed_ir.cpp b/spirv_cross_parsed_ir.cpp
+index 1c23ece1..449c6655 100644
+--- a/spirv_cross_parsed_ir.cpp
++++ b/spirv_cross_parsed_ir.cpp
+@@ -431,6 +431,10 @@ void ParsedIR::set_decoration(ID id, Decoration decoration, uint32_t argument)
+ 		dec.set = argument;
+ 		break;
+ 
++	case DecorationSamplerSlot: // axslcc spec
++		dec.sampler_slot = argument;
++		break;
++
+ 	case DecorationInputAttachmentIndex:
+ 		dec.input_attachment = argument;
+ 		break;
+@@ -652,6 +656,8 @@ uint32_t ParsedIR::get_decoration(ID id, Decoration decoration) const
+ 		return dec.stream;
+ 	case DecorationBinding:
+ 		return dec.binding;
++	case DecorationSamplerSlot:
++		return dec.sampler_slot;
+ 	case DecorationDescriptorSet:
+ 		return dec.set;
+ 	case DecorationInputAttachmentIndex:
+@@ -739,6 +745,10 @@ void ParsedIR::unset_decoration(ID id, Decoration decoration)
+ 		dec.set = 0;
+ 		break;
+ 
++	case DecorationSamplerSlot: // axslcc spec
++		dec.sampler_slot = 0;
++		break;
++
+ 	case DecorationInputAttachmentIndex:
+ 		dec.input_attachment = 0;
+ 		break;
+diff --git a/spirv_cross_util.cpp b/spirv_cross_util.cpp
+index f30706f5..e8099602 100644
+--- a/spirv_cross_util.cpp
++++ b/spirv_cross_util.cpp
+@@ -72,6 +72,13 @@ void inherit_combined_sampler_bindings(Compiler &compiler)
+ 			uint32_t binding = compiler.get_decoration(s.image_id, DecorationBinding);
+ 			compiler.set_decoration(s.combined_id, DecorationBinding, binding);
+ 		}
++
++		// axslcc spec
++		if (compiler.has_decoration(s.image_id, DecorationSamplerSlot))
++		{
++			uint32_t sampler_slot = compiler.get_decoration(s.image_id, DecorationSamplerSlot);
++			compiler.set_decoration(s.combined_id, DecorationSamplerSlot, sampler_slot);
++		}
+ 	}
+ }
+ } // namespace spirv_cross_util
+diff --git a/spirv_glsl.cpp b/spirv_glsl.cpp
+index f9ce6cb0..21f82263 100644
+--- a/spirv_glsl.cpp
++++ b/spirv_glsl.cpp
+@@ -2387,7 +2387,10 @@ void CompilerGLSL::emit_buffer_block(const SPIRVariable &var)
+ 		emit_buffer_block_flattened(var);
+ 	else if (is_legacy() || (!options.es && options.version == 130) ||
+ 	         (ubo_block && options.emit_uniform_buffer_as_plain_uniforms))
+-		emit_buffer_block_legacy(var);
++		if (options.inline_ubo_members) // axslcc spec
++			emit_buffer_block_inlined(var);
++		else
++			emit_buffer_block_legacy(var);
+ 	else
+ 		emit_buffer_block_native(var);
+ }
+@@ -10894,6 +10897,8 @@ string CompilerGLSL::access_chain_internal(uint32_t base, const uint32_t *indice
+ 					string qual_mbr_name = get_member_qualified_name(type_id, index);
+ 					if (!qual_mbr_name.empty())
+ 						expr = qual_mbr_name;
++					else if (options.inline_ubo_members) // axslcc spec
++						expr = to_member_name(*type, index);
+ 					else if (flatten_member_reference)
+ 						expr += join("_", to_member_name(*type, index));
+ 					else
+@@ -20290,3 +20295,37 @@ bool CompilerGLSL::has_legacy_nocontract(uint32_t result_type, uint32_t id) cons
+ 	                      FPFastMathModeAllowReassocMask;
+ 	return (get_fp_fast_math_flags_for_op(result_type, id) & fp_flags) != fp_flags;
+ }
++
++// --- axslcc spec
++void CompilerGLSL::emit_buffer_block_inlined(const SPIRVariable& var)
++{
++	auto &type = get<SPIRType>(var.basetype);
++	bool ssbo = var.storage == StorageClassStorageBuffer ||
++	            ir.meta[type.self].decoration.decoration_flags.get(DecorationBufferBlock);
++	if (ssbo)
++		SPIRV_CROSS_THROW("SSBOs not supported in legacy targets.");
++
++	// We're emitting the push constant block as a regular struct, so disable the block qualifier temporarily.
++	// Otherwise, we will end up emitting layout() qualifiers on naked structs which is not allowed.
++	auto &block_flags = ir.meta[type.self].decoration.decoration_flags;
++	bool block_flag = block_flags.get(DecorationBlock);
++	block_flags.clear(DecorationBlock);
++
++	add_resource_name(type.self);
++	auto name = type_to_glsl(type);
++	type.member_name_cache.clear();
++	uint32_t i = 0;
++	for (auto &member : type.member_types)
++	{
++		add_member_name(type, i);
++		statement_inner("uniform ");
++		emit_struct_member(type, member, i);
++		++i;
++	}
++	statement("");
++
++	if (block_flag)
++		block_flags.set(DecorationBlock);
++}
++
++// === axslcc spec
+diff --git a/spirv_glsl.hpp b/spirv_glsl.hpp
+index 98e93ee9..2e2a3fce 100644
+--- a/spirv_glsl.hpp
++++ b/spirv_glsl.hpp
+@@ -156,6 +156,18 @@ public:
+ 		// This workaround may cause significant performance degeneration on some Android devices.
+ 		bool enable_row_major_load_workaround = true;
+ 
++		// axslcc spec
++		// Converts uniform block members into individual global uniform declarations.
++		// Example:
++		//    uniform fs_ub {
++		//       float a;
++		//       float b;
++		//    }
++		// becomes:
++		//    uniform float a;
++		//    uniform float b;
++		bool inline_ubo_members = false;
++
+ 		// If non-zero, controls layout(num_views = N) in; in GL_OVR_multiview2.
+ 		uint32_t ovr_multiview_view_count = 0;
+ 
+@@ -1087,6 +1099,11 @@ protected:
+ 	uint32_t get_fp_fast_math_flags_for_op(uint32_t result_type, uint32_t id) const;
+ 	bool has_legacy_nocontract(uint32_t result_type, uint32_t id) const;
+ 
++	// --- axslcc spec: inline ubo members support
++public:
++	void emit_buffer_block_inlined(const SPIRVariable &var);
++	// === axslcc spec
++
+ private:
+ 	void init();
+ 
+diff --git a/spirv_hlsl.cpp b/spirv_hlsl.cpp
+index 098beca5..307388bd 100644
+--- a/spirv_hlsl.cpp
++++ b/spirv_hlsl.cpp
+@@ -1434,6 +1434,30 @@ bool CompilerHLSL::is_hlsl_aux_buffer_binding_used(HLSLAuxBinding binding) const
+ 		return false;
+ }
+ 
++// axslcc spec
++void CompilerHLSL::add_hlsl_sampler_state(uint32_t slot, const std::string &sampler_state_symbol)
++{
++	sampler_registry.emplace(slot, sampler_state_symbol);
++}
++
++// axslcc spec
++uint32_t CompilerHLSL::resolve_sampler_variable(uint32_t id) const
++{
++	if (ir.ids[id].get_type() == TypeVariable)
++	{
++		return id;
++	}
++	else if (ir.ids[id].get_type() == TypeExpression)
++	{
++		auto &expr = get<SPIRExpression>(id);
++		if (expr.loaded_from)
++			return expr.loaded_from;
++		if (expr.base_expression)
++			return expr.base_expression;
++	}
++	return 0;
++}
++
+ void CompilerHLSL::emit_composite_constants()
+ {
+ 	// HLSL cannot declare structs or arrays inline, so we must move them out to
+@@ -3970,7 +3994,21 @@ void CompilerHLSL::emit_texture_op(const Instruction &i, bool sparse)
+ 		if (combined_image)
+ 			sampler_expr = to_non_uniform_aware_expression(combined_image->sampler);
+ 		else
+-			sampler_expr = to_sampler_expression(img);
++		{
++			if (hlsl_options.shader_model <= 50 || is_forcing_recompilation())
++			{
++				sampler_expr = to_sampler_expression(img);
++			}
++			else { // axslcc spec: d3d12 HLSL-5.1+
++				uint32_t sampler_id = resolve_sampler_variable(img);
++				auto sampler_slot = get_decoration(sampler_id, spv::DecorationSamplerSlot);
++				auto it = sampler_registry.find(sampler_slot);
++				if (it != sampler_registry.end())
++					sampler_expr = it->second;
++				else
++					sampler_expr = to_sampler_expression(img);
++			}
++		}
+ 		expr += sampler_expr;
+ 	}
+ 
+@@ -4342,13 +4380,16 @@ void CompilerHLSL::emit_modern_uniform(const SPIRVariable &var)
+ 
+ 		if (type.basetype == SPIRType::SampledImage && type.image.dim != DimBuffer)
+ 		{
+-			// For combined image samplers, also emit a combined image sampler.
+-			if (is_depth_image(type, var.self))
+-				statement("SamplerComparisonState ", to_sampler_expression(var.self), type_to_array_glsl(type, var.self),
+-				          to_resource_binding_sampler(var), ";");
+-			else
+-				statement("SamplerState ", to_sampler_expression(var.self), type_to_array_glsl(type, var.self),
+-				          to_resource_binding_sampler(var), ";");
++			if (hlsl_options.shader_model < 51)
++			{ // axslcc spec: don't emit local sampler state for d3d12
++				// For combined image samplers, also emit a combined image sampler.
++				if (is_depth_image(type, var.self))
++					statement("SamplerComparisonState ", to_sampler_expression(var.self),
++					          type_to_array_glsl(type, var.self), to_resource_binding_sampler(var), ";");
++				else
++					statement("SamplerState ", to_sampler_expression(var.self), type_to_array_glsl(type, var.self),
++					          to_resource_binding_sampler(var), ";");
++			}
+ 		}
+ 		break;
+ 	}
+diff --git a/spirv_hlsl.hpp b/spirv_hlsl.hpp
+index 5f9c3139..c7de6af0 100644
+--- a/spirv_hlsl.hpp
++++ b/spirv_hlsl.hpp
+@@ -227,6 +227,11 @@ public:
+ 	void unset_hlsl_aux_buffer_binding(HLSLAuxBinding binding);
+ 	bool is_hlsl_aux_buffer_binding_used(HLSLAuxBinding binding) const;
+ 
++	// --- start of axslcc spec
++	void add_hlsl_sampler_state(uint32_t slot, const std::string &sampler_state_symbol);
++	uint32_t resolve_sampler_variable(uint32_t id) const;
++	// === end of axslcc spec
++
+ private:
+ 	std::string type_to_glsl(const SPIRType &type, uint32_t id = 0) override;
+ 	std::string image_type_hlsl(const SPIRType &type, uint32_t id);
+@@ -320,6 +325,8 @@ private:
+ 	bool requires_scalar_refract = false;
+ 	bool requires_scalar_faceforward = false;
+ 
++	std::unordered_map<uint32_t, std::string> sampler_registry; // axslcc spec
++
+ 	struct TextureSizeVariants
+ 	{
+ 		// MSVC 2013 workaround.

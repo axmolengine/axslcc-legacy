@@ -641,6 +641,7 @@ enum Decoration {
     DecorationConditionalINTEL = 6247,
     DecorationCacheControlLoadINTEL = 6442,
     DecorationCacheControlStoreINTEL = 6443,
+	DecorationSamplerSlot = 7000, // axslcc spec
     DecorationMax = 0x7fffffff,
 };
 
@@ -3689,6 +3690,7 @@ inline const char* DecorationToString(Decoration value) {
     case DecorationIndex: return "Index";
     case DecorationBinding: return "Binding";
     case DecorationDescriptorSet: return "DescriptorSet";
+    case DecorationSamplerSlot: return "SamplerSlot";
     case DecorationOffset: return "Offset";
     case DecorationXfbBuffer: return "XfbBuffer";
     case DecorationXfbStride: return "XfbStride";

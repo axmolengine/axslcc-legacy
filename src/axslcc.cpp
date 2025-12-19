@@ -1,6 +1,6 @@
 //
 // Copyright 2018 Sepehr Taghdisian (septag@github). All rights reserved.
-// Copyright 2023~2024 axmol.dev, All rights reserved.
+// Copyright 2023~2025 axmol.dev, All rights reserved.
 // License: https://github.com/axmolengine/axslcc#license-bsd-2-clause
 // Original: https://github.com/septag/glslcc#license-bsd-2-clause
 //
@@ -54,23 +54,7 @@
 //      1.9.4       Fix MSL texture order does not follow GLSL binding order
 //      1.9.5       Build for macos-arm64
 //                  Build for macos-10.15
-//      1.9.6       Rename glslcc to axslcc
-//      1.10.0      Update SPIRV-corss to git-7fde353 (Until Aug 11, 2025)
-//                  Fix compile error
-//                  Fix sgs refl mat4 semantic name for HLSL
-//      1.11.0      Enables HLSL input support
-//      1.12.0      Fix msl vertex location overlaps when contains mat4
-//                  Add option --msl_ios for target iOS MSL
-//                  Add option --fixup_clipspace
-//                  Add option --msl_reset_vlocs
-//      1.13.0      Target MSL default version to 2.0
-//      1.13.1      Split legacy --automap option into two distinct flags: --auto-map-bindings (for resource bindings) and --auto-map-locations (for shader I/O locations).
-//      1.13.2      Add option --inline-ubo-members, previous option name: --flatten-ubos is deprecated
-//      1.15.0      Fix spirv code output truncation when --sgs set
-//                  Add --profile version support for SPIRV (default: 100)
-//                  Update spirv-cross: 542db37(4130) (Until Nov 7, 2025)
-//                  Update glslang: 1c7030f(5357) (Until Nov 11, 2025)
-//                  Remove SPVRemapper linkage
+//      1.9.6+      see @README.md
 //
 
 /**
@@ -124,7 +108,7 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define VERSION_MAJOR 1
-#define VERSION_MINOR 15
+#define VERSION_MINOR 14
 #define VERSION_SUB 0
 
 using namespace axslc;

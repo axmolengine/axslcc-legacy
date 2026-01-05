@@ -14,8 +14,13 @@
 
 namespace axslc {
 
-struct sc_stage {
+struct sc_target {
+    uint32_t    lang;
+    uint32_t    profile_ver;
+    uint32_t    offset;
+
     uint32_t    stage;
+    
     union {
         char*   code;
         void*   data;
@@ -35,12 +40,10 @@ struct sc_file
     std::string     filepath            = {};
     uint16_t        major_ver           = 0;
     uint16_t        minor_ver           = 0;
-    uint32_t        lang                = 0;
-    uint16_t        profile_ver         = 0;
-    sc_stage*       stages              = nullptr;
+    sc_target*      targets = nullptr;
 };
 
-sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t major_ver, uint16_t min_ver, uint32_t lang, uint32_t profile_ver)
+sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t major_ver, uint16_t min_ver)
 {
     sc_file* sc = new (sx_malloc(alloc, sizeof(sc_file))) sc_file;
     sc->alloc = alloc;
@@ -48,8 +51,6 @@ sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t ma
 
     sc->major_ver = major_ver;
     sc->minor_ver = min_ver;
-    sc->lang = lang;
-    sc->profile_ver = profile_ver;
 
     return sc;
 }
@@ -57,26 +58,28 @@ sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t ma
 void sc_destroy_file(sc_file* f)
 {
     sx_assert(f);
-    sx_array_free(f->alloc, f->stages);
+    sx_array_free(f->alloc, f->targets);
     f->~sc_file();
     sx_free(f->alloc, f);
 }
 
-void sc_add_stage_code(sc_file* f, uint32_t stage, const char* code)
+void sc_add_stage_code(sc_file* f, uint32_t stage, const char* code, int lang, int profile_ver)
 {
-    sc_stage* s = nullptr;
+    sc_target* s = nullptr;
     // search in stages and see if find it
-    for (int i = 0; i < sx_array_count(f->stages); i++) {
-        if (f->stages[i].stage == stage) {
-            s = &f->stages[i];
+    for (int i = 0; i < sx_array_count(f->targets); i++) {
+        if (f->targets[i].lang == lang && f->targets[i].profile_ver == profile_ver) {
+            s = &f->targets[i];
             break;
         }
     }
 
     if (!s) {
-        s = sx_array_add(f->alloc, f->stages, 1);
-        sx_memset(s, 0x0, sizeof(sc_stage));
+        s = sx_array_add(f->alloc, f->targets, 1);
+        sx_memset(s, 0x0, sizeof(sc_target));
         s->stage = stage;
+        s->lang = lang;
+        s->profile_ver = profile_ver;
     }
 
     int len = sx_strlen(code) + 1;
@@ -88,23 +91,25 @@ void sc_add_stage_code(sc_file* f, uint32_t stage, const char* code)
     sx_memcpy(s->code, code, len);
 }
 
-void sc_add_stage_code_bin(sc_file* f, uint32_t stage, const void* bytecode, int len)
+void sc_add_stage_code_bin(sc_file* f, uint32_t stage, const void* bytecode, int len, int lang, int profile_ver)
 {
     sx_assert(len > 0);
 
-    sc_stage* s = nullptr;
+    sc_target* s = nullptr;
     // search in stages and see if find it
-    for (int i = 0; i < sx_array_count(f->stages); i++) {
-        if (f->stages[i].stage == (int)stage) {
-            s = &f->stages[i];
+    for (int i = 0; i < sx_array_count(f->targets); i++) {
+        if (f->targets[i].lang == (int)lang && f->targets[i].profile_ver == profile_ver) {
+            s = &f->targets[i];
             break;
         }
     }
 
     if (!s) {
-        s = sx_array_add(f->alloc, f->stages, 1);
-        sx_memset(s, 0x0, sizeof(sc_stage));
+        s = sx_array_add(f->alloc, f->targets, 1);
+        sx_memset(s, 0x0, sizeof(sc_target));
         s->stage = stage;
+        s->lang = lang;
+        s->profile_ver = profile_ver;
     }
     
     sx_assert(s->data == nullptr);
@@ -115,21 +120,23 @@ void sc_add_stage_code_bin(sc_file* f, uint32_t stage, const void* bytecode, int
     s->data_size = len;
 }
 
-void sc_add_stage_reflect(sc_file* f, uint32_t stage, const void* reflect, int refl_size)
+void sc_add_stage_reflect(sc_file* f, uint32_t stage, const void* reflect, int refl_size, int lang, int profile_ver)
 {
-    sc_stage* s = nullptr;
-    // search in stages and see if find it
-    for (int i = 0; i < sx_array_count(f->stages); i++) {
-        if (f->stages[i].stage == (int)stage) {
-            s = &f->stages[i];
+    sc_target* s = nullptr;
+    // search in targets and see if find it
+    for (int i = 0; i < sx_array_count(f->targets); i++) {
+        if (f->targets[i].lang == (int)lang && f->targets[i].profile_ver == profile_ver) {
+            s = &f->targets[i];
             break;
         }
     }
 
     if (!s) {
-        s = sx_array_add(f->alloc, f->stages, 1);
-        sx_memset(s, 0x0, sizeof(sc_stage));
+        s = sx_array_add(f->alloc, f->targets, 1);
+        sx_memset(s, 0x0, sizeof(sc_target));
         s->stage = stage;
+        s->lang = lang;
+        s->profile_ver = profile_ver;
     }
 
     sx_assert(s->refl == nullptr);
@@ -154,54 +161,67 @@ bool sc_commit(sc_file* f)
     const uint32_t sc_size_offset = sizeof(sc_magic);
     sc_size += sx_file_write_var(&writer, sc_size);
 
-    sc_chunk sc_header;
+    sc_chunk sc_header{};
     sc_header.major = f->major_ver;
     sc_header.minor = f->minor_ver;
-    sc_header.lang = f->lang;
-    sc_header.profile_ver = f->profile_ver;
+    sc_header.num_targets = sx_array_count(f->targets);
     sc_size += sx_file_write_var(&writer, sc_header);
 
-    // write stages
-    for (int i = 0; i < sx_array_count(f->stages); i++) {
-        const sc_stage* s = &f->stages[i];
+    const uint32_t indices_offset = sc_size;
+    
+    // placehold
+    for (int i = 0; i < sc_header.num_targets; i++) {
+        sc_target_entry dummy{};
+        sc_size += sx_file_write_var(&writer, dummy);
+    }
 
-        const uint32_t code_size = (s->data_size == 0 ? (sx_strlen(s->code)+1) : 0);
-        const uint32_t data_size = s->data_size;
+    // write stages
+    for (int i = 0; i < sc_header.num_targets; i++) {
+        sc_target* t = &f->targets[i];
+
+        t->offset = sc_size; // record target STAG offset
+
+        const uint32_t code_size = (t->data_size == 0 ? (sx_strlen(t->code)+1) : 0);
+        const uint32_t data_size = t->data_size;
         sx_assert(code_size || data_size);
 
-        const uint32_t stage_size = 
-            (s->refl ? (8 + s->refl_size) : 0) +
-            (8 + code_size + data_size) +
-            sizeof(uint32_t);
+        const uint32_t stage_size = (t->refl ? (8 + t->refl_size) : 0) + (8 + code_size + data_size) + sizeof(uint32_t) /* stage */;
         
         // `STAG`
         const uint32_t _stage = SC_CHUNK_STAG;
         sc_size += sx_file_write_var(&writer, _stage);
         sc_size += sx_file_write_var(&writer, stage_size);
-        sc_size += sx_file_write_var(&writer, s->stage);
+        sc_size += sx_file_write_var(&writer, t->stage);
 
         if (code_size) {
             // `CODE`
             const uint32_t _code = SC_CHUNK_CODE;
-            const uint32_t code_size = sx_strlen(s->code) + 1;
+            const uint32_t code_size = sx_strlen(t->code) + 1;
             sc_size += sx_file_write_var(&writer, _code);
             sc_size += sx_file_write_var(&writer, code_size);
-            sc_size += sx_file_write(&writer, s->code, code_size);
+            sc_size += sx_file_write(&writer, t->code, code_size);
         } else if (data_size) {
             // `DATA`
             const uint32_t _data = SC_CHUNK_DATA;
             sc_size += sx_file_write_var(&writer, _data);
-            sc_size += sx_file_write_var(&writer, s->data_size);
-            sc_size += sx_file_write(&writer, s->data, s->data_size);
+            sc_size += sx_file_write_var(&writer, t->data_size);
+            sc_size += sx_file_write(&writer, t->data, t->data_size);
         }
 
         // `REFL`
-        if (s->refl) {
+        if (t->refl) {
             const uint32_t _refl = SC_CHUNK_REFL;
             sc_size += sx_file_write_var(&writer, _refl);
-            sc_size += sx_file_write_var(&writer, s->refl_size);
-            sc_size += sx_file_write(&writer, s->refl, s->refl_size);
+            sc_size += sx_file_write_var(&writer, t->refl_size);
+            sc_size += sx_file_write(&writer, t->refl, t->refl_size);
         }
+    }
+
+    sx_file_seekw(&writer, indices_offset, SX_WHENCE_BEGIN);
+    for (int i = 0; i < sc_header.num_targets; i++) {
+        const sc_target* t = &f->targets[i];
+        sc_target_entry entry_info { .lang = t->lang, .profile_ver = t->profile_ver, .offset = t->offset };
+        sx_file_write_var(&writer, entry_info); // write base info first
     }
 
     // finish sc size

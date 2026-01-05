@@ -22,11 +22,11 @@ namespace axslc {
 
 struct sc_file;
 
-sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t major_ver, uint16_t min_ver, uint32_t lang, uint32_t profile_ver);
+sc_file* sc_create_file(const sx_alloc* alloc, const char* filepath, uint16_t major_ver, uint16_t min_ver);
 void      sc_destroy_file(sc_file* f);
-void      sc_add_stage_code(sc_file* f, uint32_t stage, const char* code);
-void      sc_add_stage_code_bin(sc_file* f, uint32_t stage, const void* bytecode, int len);
-void      sc_add_stage_reflect(sc_file* f, uint32_t stage, const void* reflect, int reflect_size);
+void      sc_add_stage_code(sc_file* f, uint32_t stage, const char* code, int lang, int profile_ver);
+void      sc_add_stage_code_bin(sc_file* f, uint32_t stage, const void* bytecode, int len, int lang, int profile_ver);
+void      sc_add_stage_reflect(sc_file* f, uint32_t stage, const void* reflect, int reflect_size, int lang, int profile_ver);
 bool      sc_commit(sc_file* f);
 
 }

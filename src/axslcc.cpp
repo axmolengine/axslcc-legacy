@@ -78,8 +78,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <string>
 #include <iterator>
+#include <ranges>
+#include <string>
 
 #include "SPIRV/GlslangToSpv.h"
 #include "SPIRV/SpvTools.h"
@@ -112,10 +113,12 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define AXSLCC_VERSION_MAJOR 3
-#define AXSLCC_VERSION_MINOR 3
-#define AXSLCC_VERSION_REVISION 1
+#define AXSLCC_VERSION_MINOR 4
+#define AXSLCC_VERSION_REVISION 0
 
 using namespace axslc;
+
+using namespace std::string_view_literals;
 
 static const sx_alloc* g_alloc = sx_alloc_malloc();
 static sc_file* sc_file_handle = nullptr;
@@ -125,13 +128,10 @@ struct p_define {
     char* val;
 };
 
-enum shader_lang {
-    SHADER_LANG_ESSL = 0,
-    SHADER_LANG_HLSL,
-    SHADER_LANG_MSL,
-    SHADER_LANG_GLSL,
-    SHADER_LANG_SPIRV,
-    SHADER_LANG_COUNT
+struct shader_target_st {
+    ShaderLang lang;
+    int profile; // atoi
+    std::vector<std::pair<std::string, std::string>> defines;
 };
 
 enum output_error_format {
@@ -140,12 +140,12 @@ enum output_error_format {
     OUTPUT_ERRORFORMAT_GCC
 };
 
-static const char* k_shader_types[SHADER_LANG_COUNT] = {
-    "essl",
-    "hlsl",
-    "msl",
-    "glsl",
-    "spirv"
+static std::string_view k_shader_types[SHADER_LANG_COUNT] = {
+    "essl"sv,
+    "hlsl"sv,
+    "msl"sv,
+    "glsl"sv,
+    "spirv"sv
 };
 
 static const uint32_t k_shader_langs_fourcc[SHADER_LANG_COUNT] = {
@@ -271,7 +271,6 @@ static const char* k_builtin_sampler_states[] = {
     "PointNoMipClamp" // 21
 };
 
-
 // Includer
 class Includer : public glslang::TShader::Includer {
 public:
@@ -373,7 +372,7 @@ struct cmd_args {
     const char* fs_filepath;
     const char* cs_filepath;
     const char* out_filepath;
-    shader_lang lang;
+    ShaderLang lang;
     p_define* defines;
     Includer includer;
     int profile_ver;
@@ -399,6 +398,7 @@ struct cmd_args {
     output_error_format err_format;
     const char* cvar;
     const char* reflect_filepath;
+    const char* cross_args;
 };
 
 static void print_version()
@@ -419,19 +419,19 @@ static void print_help(sx_cmdline_context* ctx)
     exit(0);
 }
 
-static shader_lang parse_shader_lang(const char* arg)
+static ShaderLang parse_shader_lang(std::string_view arg)
 {
-    if (sx_strequalnocase(arg, "metal"))
+    if (arg == "metal")
         arg = "msl";
 
     for (int i = 0; i < SHADER_LANG_COUNT; i++) {
-        if (sx_strequalnocase(k_shader_types[i], arg)) {
-            return (shader_lang)i;
+        if (k_shader_types[i] == arg) {
+            return (ShaderLang)i;
         }
     }
 
-    if (sx_strequalnocase(arg, "gles")) // compatible shader lang name, prefer to: essl
-        return shader_lang::SHADER_LANG_ESSL;
+    if (arg == "gles") // compatible shader lang name, prefer to: essl
+        return ShaderLang::SHADER_LANG_ESSL;
 
     puts("Invalid shader type");
     exit(-1);
@@ -595,20 +595,29 @@ static void parse_includes(cmd_args* args, const char* includes)
     } while (inc);
 }
 
-static void add_defines(glslang::TShader* shader, const cmd_args& args, std::string& def)
+static void add_defines(glslang::TShader* shader, const cmd_args& args, const shader_target_st& shader_target, std::string& def)
 {
     std::vector<std::string> processes;
-
+    char process[256];
     for (int i = 0; i < sx_array_count(args.defines); i++) {
         const p_define& d = args.defines[i];
         def += "#define " + std::string(d.def);
         if (d.val) {
             def += std::string(" ") + std::string(d.val);
         }
-        def += std::string("\n");
+        def += '\n';
 
-        char process[256];
         sx_snprintf(process, sizeof(process), "D%s", d.def);
+        processes.push_back(process);
+    }
+
+    for (int i = 0; i < shader_target.defines.size(); ++i) {
+        def += "#define " + shader_target.defines[i].first;
+        if (!shader_target.defines[i].second.empty())
+            def += " " + shader_target.defines[i].second;
+        def += '\n';
+
+        sx_snprintf(process, sizeof(process), "D%s", shader_target.defines[i].first.c_str());
         processes.push_back(process);
     }
 
@@ -935,7 +944,7 @@ static void output_reflection_json(const cmd_args& args, const spirv_cross::Comp
     sx_assert(jctx);
 
     sjson_node* jroot = sjson_mkobject(jctx);
-    sjson_put_string(jctx, jroot, "language", k_shader_types[args.lang]);
+    sjson_put_string(jctx, jroot, "language", k_shader_types[args.lang].data());
     sjson_put_int(jctx, jroot, "profile_version", args.profile_ver);
     if (args.compile_bin)
         sjson_put_bool(jctx, jroot, "bytecode", true);
@@ -1309,7 +1318,7 @@ static bool write_file(const std::string& filepath, const char* data, const std:
 }
 
 static int cross_compile(const cmd_args& args, const glslang::TIntermediate& ir, std::vector<uint32_t>& spirv,
-    const char* filename, EShLanguage stage, int file_index)
+    const char* filename, EShLanguage stage, const shader_target_st& shader_target, int target_index)
 {
     sx_assert(!spirv.empty());
     // Using SPIRV-cross
@@ -1367,8 +1376,7 @@ static int cross_compile(const cmd_args& args, const glslang::TIntermediate& ir,
             }
 
             // since axslcc-3.1.1
-            for (auto i = 0; i < std::size(k_builtin_sampler_states); ++i)
-            {
+            for (auto i = 0; i < std::size(k_builtin_sampler_states); ++i) {
                 hlsl->add_hlsl_sampler_state(i, k_builtin_sampler_states[i]);
             }
         } else if (args.lang == SHADER_LANG_MSL) {
@@ -1457,20 +1465,20 @@ static int cross_compile(const cmd_args& args, const glslang::TIntermediate& ir,
                     return -1;
                 }
 
-                sc_add_stage_code_bin(sc_file_handle, sstage, mem->data, mem->size);
+                sc_add_stage_code_bin(sc_file_handle, sstage, mem->data, mem->size, shader_target.lang, shader_target.profile);
                 sx_mem_destroy_block(mem);
             } else {
                 if (args.lang != SHADER_LANG_SPIRV) {
-                    sc_add_stage_code(sc_file_handle, sstage, code.c_str());
+                    sc_add_stage_code(sc_file_handle, sstage, code.c_str(), shader_target.lang, shader_target.profile);
                 } else {
-                    sc_add_stage_code_bin(sc_file_handle, sstage, spirv.data(), static_cast<int>(spirv.size() * sizeof(uint32_t)));
+                    sc_add_stage_code_bin(sc_file_handle, sstage, spirv.data(), static_cast<int>(spirv.size() * sizeof(uint32_t)), shader_target.lang, shader_target.profile);
                 }
             }
 
             if (args.reflect) {
                 sx_mem_block* mem = nullptr;
                 auto refl_bytes = output_reflection_bin(args, *compiler, ress, args.out_filepath, stage, &mem);
-                sc_add_stage_reflect(sc_file_handle, sstage, mem->data, refl_bytes);
+                sc_add_stage_reflect(sc_file_handle, sstage, mem->data, refl_bytes, shader_target.lang, shader_target.profile);
                 sx_mem_destroy_block(mem);
             }
         } else {
@@ -1490,7 +1498,7 @@ static int cross_compile(const cmd_args& args, const glslang::TIntermediate& ir,
                     filepath = args.out_filepath;
                 }
             }
-            bool append = !cvar_code.empty() && (file_index > 0);
+            bool append = false; // !cvar_code.empty() && (file_index > 0);
 
             // Check if we have to compile byte-code or output the source only
             if (args.compile_bin && args.lang == SHADER_LANG_HLSL) {
@@ -1649,7 +1657,7 @@ static void output_error(const char* err_str, const cmd_args& args, const char* 
     }
 }
 
-static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
+static int compile_target(cmd_args& args, shader_target_st& shader_target, const TBuiltInResource& limits_conf, int target_index)
 {
     auto destroy_shaders = [](glslang::TShader**& shaders) {
         for (int i = 0; i < sx_array_count(shaders); i++) {
@@ -1806,7 +1814,8 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         semantics_def += std::string(sv_target_line);
     }
 
-    for (int i = 0; i < sx_array_count(files); i++) {
+    auto& input_file = files[0];
+    {
         // Always set include_directive in the preamble, because we may need to include shaders
         std::string def("#extension GL_GOOGLE_include_directive : require\n");
         def += semantics_def;
@@ -1816,30 +1825,30 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         }
 
         // Read target file
-        sx_mem_block* mem = sx_file_load_bin(g_alloc, files[i].filename);
+        sx_mem_block* mem = sx_file_load_bin(g_alloc, input_file.filename);
         if (!mem) {
-            printf("opening file '%s' failed\n", files[i].filename);
+            printf("opening file '%s' failed\n", input_file.filename);
             compile_files_ret(-1);
         }
 
-        glslang::TShader* shader = new (sx_malloc(g_alloc, sizeof(glslang::TShader))) glslang::TShader(files[i].stage);
+        glslang::TShader* shader = new (sx_malloc(g_alloc, sizeof(glslang::TShader))) glslang::TShader(input_file.stage);
         sx_assert(shader);
         sx_array_push(g_alloc, shaders, shader);
 
         char* shader_str;
         int shader_len;
         int start_line = 0;
-        if (files[i].size == 0) {
+        if (input_file.size == 0) {
             shader_str = (char*)mem->data;
             shader_len = (int)mem->size;
         } else {
-            shader_str = (char*)mem->data + files[i].offset;
-            shader_len = (int)files[i].size;
-            start_line = calculate_start_line((const char*)mem->data, files[i].offset);
+            shader_str = (char*)mem->data + input_file.offset;
+            shader_len = (int)input_file.size;
+            start_line = calculate_start_line((const char*)mem->data, input_file.offset);
         }
-        shader->setStringsWithLengthsAndNames(&shader_str, &shader_len, &files[i].filename, 1);
+        shader->setStringsWithLengthsAndNames(&shader_str, &shader_len, &input_file.filename, 1);
         shader->setInvertY(args.invert_y ? true : false);
-        shader->setEnvInput(glslang::EShSourceGlsl, files[i].stage, glslang::EShClientVulkan, default_version);
+        shader->setEnvInput(glslang::EShSourceGlsl, input_file.stage, glslang::EShClientVulkan, default_version);
         shader->setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
 
         /*
@@ -1880,12 +1889,12 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         if (args.auto_map_locations || args.automap)
             shader->setAutoMapLocations(true);
 
-        add_defines(shader, args, def);
+        add_defines(shader, args, shader_target, def);
 
         std::string prep_str;
         Includer includer(args.list_includes);
         char cur_file_dir[512];
-        sx_os_path_dirname(cur_file_dir, sizeof(cur_file_dir), files[i].filename);
+        sx_os_path_dirname(cur_file_dir, sizeof(cur_file_dir), input_file.filename);
         includer.addSystemDir(cur_file_dir);
         includer.addIncluder(args.includer);
 
@@ -1893,19 +1902,19 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
             if (shader->preprocess(&limits_conf, default_version, ENoProfile, false, false, messages, &prep_str, includer)) {
                 if (args.preprocess) {
                     puts("-------------------");
-                    printf("%s:\n", files[i].filename);
+                    printf("%s:\n", input_file.filename);
                     puts("-------------------");
                     puts(prep_str.c_str());
                     puts("");
                 }
             } else {
-                output_error(shader->getInfoLog(), args, files[i].filename, start_line);
+                output_error(shader->getInfoLog(), args, input_file.filename, start_line);
                 sx_mem_destroy_block(mem);
                 compile_files_ret(-1);
             }
         } else {
             if (!shader->parse(&limits_conf, default_version, false, messages, includer)) {
-                output_error(shader->getInfoLog(), args, files[i].filename, start_line);
+                output_error(shader->getInfoLog(), args, input_file.filename, start_line);
                 sx_mem_destroy_block(mem);
                 compile_files_ret(-1);
             }
@@ -1931,9 +1940,9 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
 
     // Output and save SPIR-V for each shader
     std::vector<uint32_t> spirv;
-    for (int i = 0; i < sx_array_count(files); i++) {
+    {
         spirv.clear();
-        auto ir = prog->getIntermediate(files[i].stage);
+        auto ir = prog->getIntermediate(input_file.stage);
         sx_assert(ir);
 
         glslang::SpvOptions spv_opts {
@@ -1946,7 +1955,7 @@ static int compile_files(cmd_args& args, const TBuiltInResource& limits_conf)
         if (!logger.getAllMessages().empty())
             puts(logger.getAllMessages().c_str());
 
-        if (cross_compile(args, *ir, spirv, files[i].filename, files[i].stage, i) != 0) {
+        if (cross_compile(args, *ir, spirv, input_file.filename, input_file.stage, shader_target, target_index) != 0) {
             compile_files_ret(-1);
         }
     }
@@ -1979,6 +1988,36 @@ static void detect_input_file(cmd_args* args, const char* file)
     }
 }
 
+std::vector<shader_target_st> parse_shader_targets(std::string_view args)
+{
+    std::vector<shader_target_st> targets;
+
+    for (auto&& part_range : args | std::views::split('&')) {
+        std::string_view part(&*part_range.begin(), std::ranges::distance(part_range));
+        shader_target_st b { SHADER_LANG_COUNT, 0, {} };
+
+        for (auto&& token_range : part | std::views::split(' ')) {
+            std::string_view token(&*token_range.begin(), std::ranges::distance(token_range));
+            if (token.starts_with("--lang=")) {
+                b.lang = parse_shader_lang(token.substr(7));
+            } else if (token.starts_with("--profile=")) {
+                b.profile = std::stoi(std::string(token.substr(10)));
+            } else if (token.starts_with("--defines=")) {
+                std::string_view defs = token.substr(10);
+                for (auto&& def_range : defs | std::views::split(',')) {
+                    std::string_view def(&*def_range.begin(), std::ranges::distance(def_range));
+                    if (!def.empty()) {
+                        b.defines.emplace_back(std::string(def), "1");
+                    }
+                }
+            }
+        }
+        targets.push_back(std::move(b));
+    }
+
+    return targets;
+}
+
 int main(int argc, char* argv[])
 {
     cmd_args args = {};
@@ -1995,6 +2034,7 @@ int main(int argc, char* argv[])
         { "frag", 0x0, SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'f', "Fragment shader source file", "Filepath" },
         { "compute", 0x0, SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'c', "Compute shader source file", "Filepath" },
         { "output", 'o', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'o', "Output file", "Filepath" },
+        { "cross-args", 'x', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'x', "Cross args", "String" },
         { "lang", 'l', SX_CMDLINE_OPTYPE_REQUIRED, 0x0, 'l', "Convert to shader language", "essl/msl/hlsl/glsl/spirv" },
 
         { "no-suffix", 'u', SX_CMDLINE_OPTYPE_FLAG_SET, &args.no_suffix, 1, "This option is for don't add _fs or _vs suffix in output file", 0x0 },
@@ -2068,6 +2108,9 @@ int main(int argc, char* argv[])
             printf("Invalid use of argument: %s\n", arg);
             exit(-1);
             break;
+        case 'x':
+            args.cross_args = arg;
+            break;
         case 'v':
             args.vs_filepath = arg;
             break;
@@ -2123,6 +2166,13 @@ int main(int argc, char* argv[])
         exit(0);
     }
 
+    if (!args.cross_args) {
+        puts("axslcc: missing arg: --cross-args");
+        exit(-1);
+    }
+
+    // lang profile defines
+
     if ((args.vs_filepath && !sx_os_path_isfile(args.vs_filepath)) || (args.fs_filepath && !sx_os_path_isfile(args.fs_filepath)) || (args.cs_filepath && !sx_os_path_isfile(args.cs_filepath))) {
         puts("Input files are invalid");
         exit(-1);
@@ -2143,11 +2193,6 @@ int main(int argc, char* argv[])
         exit(-1);
     }
 
-    if (args.lang == SHADER_LANG_COUNT && !(args.preprocess | args.validate | args.list_includes)) {
-        puts("Shader language is not specified");
-        exit(-1);
-    }
-
     if (args.out_filepath) {
         // determine if we output SGS format automatically
         char ext[32];
@@ -2156,73 +2201,71 @@ int main(int argc, char* argv[])
             args.sc_file = 1;
     }
 
-    // Set default shader profile version
-    // HLSL: 50 (5.0)
-    // GLSL: 330 (3.3)
-    // ESSL: 300 (3.0)
-    // MSL: 20000 (2.0)
-    if (args.profile_ver == 0) {
-        if (args.lang == SHADER_LANG_ESSL)
-            args.profile_ver = 300;
-        else if (args.lang == SHADER_LANG_HLSL)
-            args.profile_ver = 50; // D3D11
-        else if (args.lang == SHADER_LANG_GLSL)
-            args.profile_ver = 330;
-        else if (args.lang == SHADER_LANG_MSL)
-            args.profile_ver = spirv_cross::CompilerMSL::Options::make_msl_version(2, 0);
-        else if (args.lang == SHADER_LANG_SPIRV)
-            args.profile_ver = 100;
-    }
-
-#if SX_PLATFORM_WINDOWS
-    if (args.compile_bin && (args.lang != SHADER_LANG_HLSL || args.profile_ver >= 60)) {
-        puts("ignoring --bin flag, byte-code compilation not implemented for this target");
-        args.compile_bin = 0;
-    }
-#ifndef D3D11_COMPILER
-    // Windows + HLSL -> works but requires ENABLE_D3D11_COMPILER
-    else if (args.compile_bin) {
-        puts("Cannot compile to byte-code, glslcc is not built with ENABLE_D3D11_COMPILER flag");
+    auto shader_targets = parse_shader_targets(args.cross_args);
+    if (shader_targets.empty()) {
+        puts("No compile target specified");
         exit(-1);
     }
-#endif
-#else
-    if (args.compile_bin) {
-        puts("Ignoring --bin flag, byte-code compilation not implemented for this target");
-        args.compile_bin = 0;
-    }
-#endif
 
     if (args.sc_file && !(args.preprocess | args.validate | args.list_includes)) {
-        uint32_t slang = 0;
-        switch (args.lang) {
-        case SHADER_LANG_ESSL:
-            slang = SC_LANG_GLES;
-            break;
-        case SHADER_LANG_HLSL:
-            slang = SC_LANG_HLSL;
-            break;
-        case SHADER_LANG_MSL:
-            slang = SC_LANG_MSL;
-            break;
-        case SHADER_LANG_GLSL:
-            slang = SC_LANG_GLSL;
-            break;
-        case SHADER_LANG_SPIRV:
-            slang = SC_LANG_SPIRV;
-            break;
-        default:
-            sx_assert(0);
-            break;
-        }
-        sc_file_handle = sc_create_file(g_alloc, args.out_filepath, AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR, slang, args.profile_ver);
+        sc_file_handle = sc_create_file(g_alloc, args.out_filepath, AXSLCC_VERSION_MAJOR, AXSLCC_VERSION_MINOR);
         sx_assert(sc_file_handle);
     }
 
-    int r = compile_files(args, *GetDefaultResources());
+    int target_index = 0;
+    for (auto& shader_target : shader_targets) {
+        args.profile_ver = shader_target.profile;
+        args.lang = shader_target.lang;
+
+        if (args.lang == SHADER_LANG_COUNT && !(args.preprocess | args.validate | args.list_includes)) {
+            puts("Shader language is not specified");
+            exit(-1);
+        }
+
+        // Set default shader profile version
+        // HLSL: 50 (5.0)
+        // GLSL: 330 (3.3)
+        // ESSL: 300 (3.0)
+        // MSL: 20000 (2.0)
+        if (args.profile_ver == 0) {
+            if (args.lang == SHADER_LANG_ESSL)
+                args.profile_ver = 300;
+            else if (args.lang == SHADER_LANG_HLSL)
+                args.profile_ver = 50; // D3D11
+            else if (args.lang == SHADER_LANG_GLSL)
+                args.profile_ver = 330;
+            else if (args.lang == SHADER_LANG_MSL)
+                args.profile_ver = spirv_cross::CompilerMSL::Options::make_msl_version(2, 0);
+            else if (args.lang == SHADER_LANG_SPIRV)
+                args.profile_ver = 100;
+        }
+
+#if SX_PLATFORM_WINDOWS
+        if (args.compile_bin && (args.lang != SHADER_LANG_HLSL || args.profile_ver >= 60)) {
+            puts("ignoring --bin flag, byte-code compilation not implemented for this target");
+            args.compile_bin = 0;
+        }
+#ifndef D3D11_COMPILER
+        // Windows + HLSL -> works but requires ENABLE_D3D11_COMPILER
+        else if (args.compile_bin) {
+            puts("Cannot compile to byte-code, axslcc is not built with ENABLE_D3D11_COMPILER flag");
+            exit(-1);
+        }
+#endif
+#else
+        if (args.compile_bin) {
+            puts("Ignoring --bin flag, byte-code compilation not implemented for this target");
+            args.compile_bin = 0;
+        }
+#endif
+        int r = compile_target(args, shader_target, *GetDefaultResources(), target_index++);
+        if (r != 0) {
+            exit(-1);
+        }
+    }
 
     if (sc_file_handle) {
-        if (r == 0 && !sc_commit(sc_file_handle)) {
+        if (!sc_commit(sc_file_handle)) {
             printf("Writing SGS file '%s' failed\n", args.out_filepath);
         }
         sc_destroy_file(sc_file_handle);
@@ -2230,5 +2273,5 @@ int main(int argc, char* argv[])
 
     sx_cmdline_destroy_context(cmdline, g_alloc);
     cleanup_args(&args);
-    return r;
+    return 0;
 }

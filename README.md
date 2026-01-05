@@ -9,6 +9,10 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.4.0
+
+- Add support for compiling to multi shader targets with option `--cross-args`
+
 ### 3.3.1
 
 - Use debian-11 do build linux executable (self-hosted runner)

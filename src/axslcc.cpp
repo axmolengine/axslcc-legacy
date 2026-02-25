@@ -113,7 +113,7 @@
 #include "../3rdparty/sjson/sjson.h"
 
 #define AXSLCC_VERSION_MAJOR 3
-#define AXSLCC_VERSION_MINOR 4
+#define AXSLCC_VERSION_MINOR 5
 #define AXSLCC_VERSION_REVISION 0
 
 using namespace axslc;

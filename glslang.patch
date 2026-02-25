@@ -1,8 +1,8 @@
 diff --git a/SPIRV/GlslangToSpv.cpp b/SPIRV/GlslangToSpv.cpp
-index 1a5c40c5..6a09804c 100644
+index ff9c8b04..8a4700fb 100644
 --- a/SPIRV/GlslangToSpv.cpp
 +++ b/SPIRV/GlslangToSpv.cpp
-@@ -10831,6 +10831,14 @@ spv::Id TGlslangToSpvTraverser::getSymbolId(const glslang::TIntermSymbol* symbol
+@@ -11148,6 +11148,14 @@ spv::Id TGlslangToSpvTraverser::getSymbolId(const glslang::TIntermSymbol* symbol
          // default to 0
          builder.addDecoration(id, spv::Decoration::Binding, 0);
      }
@@ -30,31 +30,22 @@ index 9fb4f3ff..e12dcc26 100644
  
  GLSLANG_EXPORT void GetSpirvVersion(std::string&);
 diff --git a/SPIRV/doc.cpp b/SPIRV/doc.cpp
-index dcc9b4e1..724bc141 100644
+index f81faefa..cb81b170 100644
 --- a/SPIRV/doc.cpp
 +++ b/SPIRV/doc.cpp
-@@ -350,6 +350,7 @@ const char* DecorationString(int decoration)
-     case (int)Decoration::HitObjectShaderRecordBufferEXT:  return "DecorationHitObjectShaderRecordBufferEXT";
+@@ -356,6 +356,7 @@ const char* DecorationString(int decoration)
  
-     case (int)Decoration::SaturatedToLargestFloat8NormalConversionEXT: return "DecorationSaturatedToLargestFloat8NormalConversionEXT";
-+    case 7000: return "SamplerSlot"; // axslcc spec
+     case (int)Decoration::ArrayStrideIdEXT:        return "DecorationArrayStrideIdEXT";
+     case (int)Decoration::OffsetIdEXT:             return "DecorationOffsetIdEXT";
++    case (int)Decoration::SamplerSlot:             return "SamplerSlot"; // axslcc spec
      }
  }
  
 diff --git a/SPIRV/spirv.hpp11 b/SPIRV/spirv.hpp11
-index 6f3021e9..57dfe1a1 100644
+index 36a82e7a..95a64e12 100644
 --- a/SPIRV/spirv.hpp11
 +++ b/SPIRV/spirv.hpp11
-@@ -206,7 +206,7 @@ enum class ExecutionMode : unsigned {
-     SampleInterlockOrderedEXT = 5368,
-     SampleInterlockUnorderedEXT = 5369,
-     ShadingRateInterlockOrderedEXT = 5370,
--    ShadingRateInterlockUnorderedEXT = 5371,
-+    ShadingRateInterlockUnorderedEXT = 5371,
-     Shader64BitIndexingEXT = 5427,
-     SharedLocalMemorySizeINTEL = 5618,
-     RoundingModeRTPINTEL = 5620,
-@@ -653,6 +653,7 @@ enum class Decoration : unsigned {
+@@ -657,6 +657,7 @@ enum class Decoration : unsigned {
      ImplementInRegisterMapINTEL = 6191,
      CacheControlLoadINTEL = 6442,
      CacheControlStoreINTEL = 6443,
@@ -62,38 +53,11 @@ index 6f3021e9..57dfe1a1 100644
      Max = 0x7fffffff,
  };
  
-@@ -1199,7 +1200,7 @@ enum class Capability : unsigned {
-     RayTracingDisplacementMicromapNV = 5409,
-     RawAccessChainsNV = 5414,
-     RayTracingSpheresGeometryNV = 5418,
--    RayTracingLinearSweptSpheresGeometryNV = 5419,
-+    RayTracingLinearSweptSpheresGeometryNV = 5419,
-     Shader64BitIndexingEXT = 5426,
-     CooperativeMatrixReductionsNV = 5430,
-     CooperativeMatrixConversionsNV = 5431,
-@@ -3426,7 +3427,7 @@ inline const char* ExecutionModeToString(ExecutionMode value) {
-     case ExecutionMode::SampleInterlockOrderedEXT: return "SampleInterlockOrderedEXT";
-     case ExecutionMode::SampleInterlockUnorderedEXT: return "SampleInterlockUnorderedEXT";
-     case ExecutionMode::ShadingRateInterlockOrderedEXT: return "ShadingRateInterlockOrderedEXT";
--    case ExecutionMode::ShadingRateInterlockUnorderedEXT: return "ShadingRateInterlockUnorderedEXT";
-+    case ExecutionMode::ShadingRateInterlockUnorderedEXT: return "ShadingRateInterlockUnorderedEXT";
-     case ExecutionMode::Shader64BitIndexingEXT: return "Shader64BitIndexingEXT";
-     case ExecutionMode::SharedLocalMemorySizeINTEL: return "SharedLocalMemorySizeINTEL";
-     case ExecutionMode::RoundingModeRTPINTEL: return "RoundingModeRTPINTEL";
-@@ -4157,7 +4158,7 @@ inline const char* CapabilityToString(Capability value) {
-     case Capability::RayTracingDisplacementMicromapNV: return "RayTracingDisplacementMicromapNV";
-     case Capability::RawAccessChainsNV: return "RawAccessChainsNV";
-     case Capability::RayTracingSpheresGeometryNV: return "RayTracingSpheresGeometryNV";
--    case Capability::RayTracingLinearSweptSpheresGeometryNV: return "RayTracingLinearSweptSpheresGeometryNV";
-+    case Capability::RayTracingLinearSweptSpheresGeometryNV: return "RayTracingLinearSweptSpheresGeometryNV";
-     case Capability::Shader64BitIndexingEXT: return "Shader64BitIndexingEXT";
-     case Capability::CooperativeMatrixReductionsNV: return "CooperativeMatrixReductionsNV";
-     case Capability::CooperativeMatrixConversionsNV: return "CooperativeMatrixConversionsNV";
 diff --git a/glslang/Include/Types.h b/glslang/Include/Types.h
-index d3124ac8..5580ef25 100644
+index 3fb0c55b..6b6ef437 100644
 --- a/glslang/Include/Types.h
 +++ b/glslang/Include/Types.h
-@@ -929,6 +929,9 @@ public:
+@@ -940,6 +940,9 @@ public:
                   unsigned int layoutBinding              : 16;
      static const unsigned int layoutBindingEnd      =  0xFFFF;
  
@@ -103,7 +67,7 @@ index d3124ac8..5580ef25 100644
                   unsigned int layoutIndex                :  8;
      static const unsigned int layoutIndexEnd      =      0xFF;
  
-@@ -994,6 +997,7 @@ public:
+@@ -1015,6 +1018,7 @@ public:
  
          layoutSet = layoutSetEnd;
          layoutBinding = layoutBindingEnd;
@@ -111,7 +75,7 @@ index d3124ac8..5580ef25 100644
          layoutAttachment = layoutAttachmentEnd;
      }
  
-@@ -1027,6 +1031,10 @@ public:
+@@ -1048,6 +1052,10 @@ public:
      {
          return layoutBinding != layoutBindingEnd;
      }
@@ -135,10 +99,10 @@ index 4eec55b5..caa880fd 100644
  
  #ifdef __cplusplus
 diff --git a/glslang/MachineIndependent/ParseHelper.cpp b/glslang/MachineIndependent/ParseHelper.cpp
-index 38ce7bd6..90f1816d 100644
+index 658ca42d..9090ad73 100644
 --- a/glslang/MachineIndependent/ParseHelper.cpp
 +++ b/glslang/MachineIndependent/ParseHelper.cpp
-@@ -7075,6 +7075,10 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
+@@ -7121,6 +7121,10 @@ void TParseContext::setLayoutQualifier(const TSourceLoc& loc, TPublicType& publi
              error(loc, "needs a literal integer", "binding", "");
          return;
      }
@@ -149,7 +113,7 @@ index 38ce7bd6..90f1816d 100644
      if (id == "constant_id") {
          requireSpv(loc, "constant_id");
          if (value >= (int)TQualifier::layoutSpecConstantIdEnd) {
-@@ -7413,6 +7417,8 @@ void TParseContext::mergeObjectLayoutQualifiers(TQualifier& dst, const TQualifie
+@@ -7498,6 +7502,8 @@ void TParseContext::mergeObjectLayoutQualifiers(TQualifier& dst, const TQualifie
              dst.layoutSet = src.layoutSet;
          if (src.layoutBinding != TQualifier::layoutBindingEnd)
              dst.layoutBinding = src.layoutBinding;

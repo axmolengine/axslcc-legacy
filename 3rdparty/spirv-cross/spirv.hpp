@@ -641,7 +641,7 @@ enum Decoration {
     DecorationConditionalINTEL = 6247,
     DecorationCacheControlLoadINTEL = 6442,
     DecorationCacheControlStoreINTEL = 6443,
-	DecorationSamplerSlot = 7000, // axslcc spec
+    DecorationSamplerSlot = 7000, // axslcc spec
     DecorationMax = 0x7fffffff,
 };
 

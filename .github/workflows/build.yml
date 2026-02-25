@@ -6,7 +6,7 @@ on:
       '.github/workflows/dist.yml'
 
 jobs:
-  win64:
+  win-x64:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v6
@@ -19,9 +19,9 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         path: ./build/src/Release/axslcc.exe
-        name: axslcc-win64
-  linux:
-    runs-on: debian-11 # self-hosted on org simdsoft, @halx99 personal machine
+        name: axslcc-win-x64
+  linux-x64:
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v6
     - name: build
@@ -33,7 +33,21 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         path: ./build/src/axslcc
-        name: axslcc-linux
+        name: axslcc-linux-x64
+  linux-arm64:
+    runs-on: ubuntu-22.04-arm
+    steps:
+    - uses: actions/checkout@v6
+    - name: build
+      shell: pwsh
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release --target axslcc
+    - name: Upload
+      uses: actions/upload-artifact@v6
+      with:
+        path: ./build/src/axslcc
+        name: axslcc-linux-arm64
   osx-arm64:
     runs-on: macos-latest
     steps:

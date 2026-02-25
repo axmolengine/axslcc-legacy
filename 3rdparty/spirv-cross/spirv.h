@@ -645,7 +645,7 @@ typedef enum SpvDecoration_ {
     SpvDecorationConditionalINTEL = 6247,
     SpvDecorationCacheControlLoadINTEL = 6442,
     SpvDecorationCacheControlStoreINTEL = 6443,
-	SpvDecorationSamplerSlot = 7000, // axslcc spec
+    SpvDecorationSamplerSlot = 7000, // axslcc spec
     SpvDecorationMax = 0x7fffffff,
 } SpvDecoration;
 
@@ -3694,7 +3694,7 @@ inline const char* SpvDecorationToString(SpvDecoration value) {
     case SpvDecorationIndex: return "Index";
     case SpvDecorationBinding: return "Binding";
     case SpvDecorationDescriptorSet: return "DescriptorSet";
-	case SpvDecorationSamplerSlot: return "SamplerSlot"; // axslcc spec
+    case SpvDecorationSamplerSlot: return "SamplerSlot"; // axslcc spec
     case SpvDecorationOffset: return "Offset";
     case SpvDecorationXfbBuffer: return "XfbBuffer";
     case SpvDecorationXfbStride: return "XfbStride";

@@ -9,6 +9,12 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.5.0
+
+- Add support for running on linux-arm64
+- Update spirv-cross: bf6bb5c(4178) (Until Feb 13, 2026)
+- Update glslang to 16.2.0
+
 ### 3.4.0
 
 - Add support for compiling to multi shader targets with option `--cross-args`
@@ -25,7 +31,7 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 ### 3.2.0
 
 - Unify and re-enumerate vertex input & uniform variable types (Break changes)
-- Update spirv-cross: b8bd9d5(5153) (Until Dec 2, 2025)
+- Update spirv-cross: b8bd9d5(4153) (Until Dec 2, 2025)
 - Update glslang: 0036567(5381) (Until Dec 10, 2025)
 
 ### 3.1.1
@@ -44,7 +50,7 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 ### 1.14.0
 
 - Update glslang: dffbc79(5382) (Until Dec 12, 2025)
-- Update spirv-cross: b8bd9d5(5153) (Until Dec 2, 2025)
+- Update spirv-cross: b8bd9d5(4153) (Until Dec 2, 2025)
 - Fix spirv code output truncation when --sgs set
 - Add --profile version support for SPIRV (default: 100)
 - Remove SPVRemapper linkage

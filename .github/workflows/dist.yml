@@ -57,23 +57,27 @@ jobs:
     - name: Create packages
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
       run: |
-        curl -L https://github.com/simdsoft/1kiss/releases/download/devtools/d3dcompiler_47.dll -o ./axslcc-win64/d3dcompiler_47.dll
-        ls -l ./axslcc-win64
+        curl -L https://github.com/simdsoft/1kiss/releases/download/devtools/d3dcompiler_47.dll -o ./axslcc-win-x64/d3dcompiler_47.dll
+        ls -l ./axslcc-win-x64
         mkdir -p pkg_dir
         prefix=axslcc-${{ steps.check_ver.outputs.release_ver }}
-        ls -l axslcc-linux
+        ls -l axslcc-linux-x64
+        ls -l axslcc-linux-arm64
         ls -l axslcc-osx-x64
         ls -l axslcc-osx-arm64
-        sudo chmod u+x ./axslcc-linux/axslcc
+        sudo chmod u+x ./axslcc-linux-x64/axslcc
+        sudo chmod u+x ./axslcc-linux-arm64/axslcc
         sudo chmod u+x ./axslcc-osx-x64/axslcc
         sudo chmod u+x ./axslcc-osx-arm64/axslcc
-        ls -l axslcc-linux
+        ls -l axslcc-linux-x64
+        ls -l axslcc-linux-arm64
         ls -l axslcc-osx-x64
         ls -l axslcc-osx-arm64
-        tar -czvf ./pkg_dir/$prefix-linux.tar.gz -C ./axslcc-linux axslcc
+        tar -czvf ./pkg_dir/$prefix-linux-x64.tar.gz -C ./axslcc-linux-x64 axslcc
+        tar -czvf ./pkg_dir/$prefix-linux-arm64.tar.gz -C ./axslcc-linux-arm64 axslcc
         tar -czvf ./pkg_dir/$prefix-osx-x64.tar.gz -C ./axslcc-osx-x64 axslcc
         tar -czvf ./pkg_dir/$prefix-osx-arm64.tar.gz -C ./axslcc-osx-arm64 axslcc
-        sh -c "cd ./axslcc-win64; zip ../pkg_dir/$prefix-win64.zip axslcc.exe d3dcompiler_47.dll"
+        sh -c "cd ./axslcc-win-x64; zip ../pkg_dir/$prefix-win-x64.zip axslcc.exe d3dcompiler_47.dll"
     - name: Publish to github release page
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
       uses: softprops/action-gh-release@v2

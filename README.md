@@ -9,9 +9,14 @@ It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and 
 
 ## ChangeLog
 
+### 3.6.0
+
+- Add Windows ARM64 builds support
+- Update spirv-cross: bf6bb5c(4187) (Until Feb 27, 2026)
+
 ### 3.5.0
 
-- Add support for running on linux-arm64
+- Add Linux ARM64 builds support
 - Update spirv-cross: bf6bb5c(4178) (Until Feb 13, 2026)
 - Update glslang to 16.2.0
 

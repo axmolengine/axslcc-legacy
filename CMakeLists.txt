@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.23..4.1)
+cmake_minimum_required(VERSION 3.23..4.3)
 project(axslcc)
 
  if (WIN32)
@@ -87,6 +87,69 @@ add_subdirectory(3rdparty/glslang)
 add_subdirectory(3rdparty/spirv-cross)
 add_subdirectory(3rdparty/sx)
 add_subdirectory(src)
+
+
+# ------------------------------------------------------------------------------
+# Helper Function: get_all_targets
+# Description: 
+#   A helper function to collect all targets (including those in subdirectories)
+#   into a list variable. This solves the limitation of CMake's native target listing.
+# Parameters:
+#   result - Output variable name to store the list of all targets
+# ------------------------------------------------------------------------------
+function(get_all_targets result)
+    # Initialize an empty list to store targets
+    set(targets "")
+    
+    # Define a recursive function to collect targets from all directories
+    function(_get_all_targets_recursive dir)
+        # Get targets in the current directory
+        get_property(current_targets DIRECTORY ${dir} PROPERTY BUILDSYSTEM_TARGETS)
+        
+        # Add current directory's targets to the global list
+        list(APPEND targets ${current_targets})
+        
+        # Get subdirectories of the current directory
+        get_property(subdirs DIRECTORY ${dir} PROPERTY SUBDIRECTORIES)
+        
+        # Recursively process all subdirectories
+        foreach(subdir IN LISTS subdirs)
+            _get_all_targets_recursive(${subdir})
+        endforeach()
+        
+        # Update the global targets list (PARENT_SCOPE to pass up)
+        set(targets ${targets} PARENT_SCOPE)
+    endfunction()
+
+    # Start recursive collection from the top-level source directory
+    _get_all_targets_recursive(${CMAKE_SOURCE_DIR})
+    
+    # Pass the collected targets to the output variable
+    set(${result} ${targets} PARENT_SCOPE)
+endfunction()
+
+ # Get the list of all targets defined in the current CMake context
+get_all_targets(all_targets)
+
+# Iterate through each target in the collected list
+foreach(target IN LISTS all_targets)
+    # Check if the target is an IMPORTED target (external dependency)
+    get_target_property(is_imported ${target} IMPORTED)
+    
+    # Skip imported targets to prevent modifying external libraries
+    if(NOT is_imported)
+        # Set C++ standard to 20 for the target (C++20)
+        set_target_properties(${target} PROPERTIES
+            C_STANDARD ${CMAKE_C_STANDARD}
+            CXX_STANDARD ${CMAKE_CXX_STANDARD}
+            # Enforce the standard (disable compiler-specific extensions)
+            CXX_STANDARD_REQUIRED ON
+        )
+        
+        # Optional: Print log to confirm the setting (comment out if not needed)
+        message(STATUS "Set C++${CMAKE_CXX_STANDARD} standard for target: ${target}")
+    endif()
+endforeach()
 
 if(MSVC_IDE)
     set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT axslcc)

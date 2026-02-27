@@ -57,8 +57,10 @@ jobs:
     - name: Create packages
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
       run: |
-        curl -L https://github.com/simdsoft/1kiss/releases/download/devtools/d3dcompiler_47.dll -o ./axslcc-win-x64/d3dcompiler_47.dll
+        curl -L https://github.com/simdsoft/1kiss/releases/download/devtools/d3dcompiler_47-x64.dll -o ./axslcc-win-x64/d3dcompiler_47.dll
+        curl -L https://github.com/simdsoft/1kiss/releases/download/devtools/d3dcompiler_47-arm64.dll -o ./axslcc-win-arm64/d3dcompiler_47.dll
         ls -l ./axslcc-win-x64
+        ls -l ./axslcc-win-arm64
         mkdir -p pkg_dir
         prefix=axslcc-${{ steps.check_ver.outputs.release_ver }}
         ls -l axslcc-linux-x64
@@ -78,6 +80,7 @@ jobs:
         tar -czvf ./pkg_dir/$prefix-osx-x64.tar.gz -C ./axslcc-osx-x64 axslcc
         tar -czvf ./pkg_dir/$prefix-osx-arm64.tar.gz -C ./axslcc-osx-arm64 axslcc
         sh -c "cd ./axslcc-win-x64; zip ../pkg_dir/$prefix-win-x64.zip axslcc.exe d3dcompiler_47.dll"
+        sh -c "cd ./axslcc-win-arm64; zip ../pkg_dir/$prefix-win-arm64.zip axslcc.exe d3dcompiler_47.dll"
     - name: Publish to github release page
       if: ${{ steps.check_ver.outputs.release_ver != '' }}
       uses: softprops/action-gh-release@v2

@@ -20,6 +20,20 @@ jobs:
       with:
         path: ./build/src/Release/axslcc.exe
         name: axslcc-win-x64
+  win-arm64:
+    runs-on: windows-11-arm
+    steps:
+    - uses: actions/checkout@v6
+    - name: build
+      shell: pwsh
+      run: |
+        cmake -B build -A arm64
+        cmake --build build --config Release --target axslcc
+    - name: Upload
+      uses: actions/upload-artifact@v6
+      with:
+        path: ./build/src/Release/axslcc.exe
+        name: axslcc-win-arm64
   linux-x64:
     runs-on: ubuntu-22.04
     steps:

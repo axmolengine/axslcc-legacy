@@ -42,10 +42,17 @@
 //        Every source must include <windows.h> before including atomic.h
 #    include <intrin.h>
 #    if SX_COMPILER_MSVC
+#if !defined(_M_ARM) && !defined(_M_ARM64)
 #        pragma intrinsic(_mm_pause)
 #        pragma intrinsic(_mm_mfence)
 #        pragma intrinsic(_mm_lfence)
 #        pragma intrinsic(_mm_sfence)
+#else
+#define _mm_pause(...)
+#define _mm_mfence(...)
+#define _mm_lfence(...)
+#define _mm_sfence(...)
+#endif
 #        pragma intrinsic(_ReadWriteBarrier)
 #        pragma intrinsic(_ReadBarrier)
 #        pragma intrinsic(_WriteBarrier)

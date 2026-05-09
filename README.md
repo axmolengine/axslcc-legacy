@@ -1,5 +1,23 @@
 ## axslcc: The Axmol Shader Compiler CLI tool
 
+# ⚠️ DEPRECATED NOTICE
+
+This repository **axslcc-legacy** is no longer actively maintained and is preserved only for historical reference.  
+Future development and the re‑architected version of Axslcc (based on the HLSL front‑end workflow) has moved to a new independent repository:
+
+👉 [Axslcc (active repository)](https://github.com/axmol/axslcc)
+
+Please submit issues, pull requests, and feedback in the new repository.  
+Code and documentation here may be outdated and are not guaranteed to remain compatible with the latest Axmol engine.
+
+---
+
+## Status Overview
+- **Legacy**: Contains the GLSL front‑end implementation (versions 3.6.x ~ 3.8.x).  
+- **Active**: Starting from 3.9.0, the recommended workflow is the HLSL front‑end.  
+
+Thank you for your support of Axslcc!
+
 `axslcc` is a command line tool that converts GLSL code to HLSL, ESSL (3.0), Metal (MSL) and also other GLSL versions (GLSL 330, GLSL 400, etc..).  
 It uses [glslang](https://github.com/KhronosGroup/glslang) for parsing GLSL and compiling SPIR-V. And [SPIRV-cross](https://github.com/KhronosGroup/SPIRV-Cross) for converting the code from SPIR-V to the target language. it forked from [glslcc](https://github.com/septag/glslcc) and mantained by axmol community.
 
